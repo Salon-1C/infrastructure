@@ -1,0 +1,14 @@
+# Local Terraform state (never commit)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Secret variable files
+terraform.tfvars
+*.auto.tfvars
+
+# OS / editor
+.DS_Store
+.idea/
+*.swp

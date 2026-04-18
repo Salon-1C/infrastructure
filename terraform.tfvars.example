@@ -1,0 +1,42 @@
+# Copy this file to terraform.tfvars and fill in the values.
+# NEVER commit terraform.tfvars — it contains secrets.
+
+aws_region  = "us-east-2"
+project     = "blume"
+environment = "production"
+
+# GitHub organization that owns both app repos
+github_org = "Salon-1C"
+
+# ── Database ──────────────────────────────────────────────────────────────────
+db_name           = "blume"
+db_instance_class = "db.t3.micro"
+
+# ── Application ───────────────────────────────────────────────────────────────
+# The URL your frontend is hosted at (used for CORS)
+allowed_origin = "https://app.example.com"
+
+# Generate a strong random value: openssl rand -hex 32
+jwt_secret         = "CHANGE_ME"
+hls_signing_secret = "CHANGE_ME"
+
+# The RTMP stream key OBS will use when publishing
+stream_key = "CHANGE_ME"
+
+# Full contents of your Firebase service account JSON file.
+# Paste the JSON as a single-line string or use a file() reference.
+firebase_service_account_json = <<EOT
+{
+  "type": "service_account",
+  "project_id": "YOUR_PROJECT_ID"
+}
+EOT
+
+# ── Mail ──────────────────────────────────────────────────────────────────────
+mail_host     = "smtp.gmail.com"
+mail_port     = 587
+mail_username = "noreply@example.com"
+
+# ── ECS Capacity ──────────────────────────────────────────────────────────────
+business_logic_desired_count = 1
+stream_engine_desired_count  = 1
