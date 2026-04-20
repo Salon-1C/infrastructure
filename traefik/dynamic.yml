@@ -1,7 +1,12 @@
 http:
   routers:
+    streamsNextApi:
+      rule: "Path(`/api/streams`) || PathPrefix(`/api/streams/`)"
+      entryPoints: ["web"]
+      priority: 35
+      service: frontend
     recordings:
-      rule: "PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`)"
+      rule: "PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || PathPrefix(`/internal/streams`)"
       entryPoints: ["web"]
       priority: 40
       service: recordings
