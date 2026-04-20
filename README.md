@@ -1,102 +1,182 @@
-# Blume Platform - README de proyecto 
+# Blume Platform - Project README
 
-Plataforma de streaming y aprendizaje compuesta por microservicios. Permite autenticacion de usuarios, transmision en vivo desde OBS, reproduccion WebRTC en navegador y gestion de grabaciones historicas.
+## Team
 
-## Diagrama C&C (Component and Connector)
+**Group:** 1C
+
+| Full Name | GitHub Profile |
+|---|---|
+| Andrés Felipe Alarcón Pulido | [andrefalar](https://github.com/orgs/Salon-1C/people/andrefalar) |
+| Juan Jerónimo Gómez Rubiano | [jujgomezru](https://github.com/orgs/Salon-1C/people/jujgomezru) |
+| Diego Esteban Ospina Ladino | [DOspinalUN23](https://github.com/orgs/Salon-1C/people/DOspinalUN23) |
+| Jared Mijail Ramírez Escalante | [JaredMijailRE](https://github.com/orgs/Salon-1C/people/JaredMijailRE) |
+| Felipe Rojas Marín | [Olyveon](https://github.com/orgs/Salon-1C/people/Olyveon) |
+| Juan Camilo Rosero Santisteban | [juan-camilo-rosero](https://github.com/orgs/Salon-1C/people/juan-camilo-rosero) |
+
+---
+
+## Software System
+
+**Name**: Blume
+
+**Logo:**
+
+<img src="./diagrams/logo.png" width="20%"/>
+
+### Description
+
+Streaming and learning platform composed of microservices. It allows user authentication, live streaming from OBS, WebRTC playback in a browser, and management of historical recordings.
+
+## Architectural Structures
+
+### Components and Connectors View
 
 ![Diagrama C&C de la plataforma](./diagrams/diagram-cyc.png)
 
-## Vision general de arquitectura
+### Description of architectural styles used
 
-- `arquisoft-front`: frontend Next.js (vistas de exploracion, transmision y grabaciones).
-- `business-logic`: backend Spring Boot para autenticacion, sesiones y reglas de negocio.
-- `stream-engine`: backend Go de control para sesiones de visualizacion y hooks de MediaMTX.
-- `mediamtx`: servidor media (ingest RTMP, reproduccion WHEP/WebRTC y generacion de recordings).
-- `record-service`: procesamiento de grabaciones; escanea archivos, sube a S3/MinIO y guarda metadatos.
-- Persistencia:
-  - MySQL principal para `business-logic`.
-  - MySQL dedicado para `record-service`.
-  - MinIO como almacenamiento de objetos S3-compatible.
-- `traefik`: gateway local unico para frontend y APIs (paridad conceptual con despliegue cloud).
+Blume follows a **SOFEA (Service-Oriented Front-End Architecture)** style at the system level, with each backend component internally organized as a **Layered (Hexagonal) Architecture**.
 
-## Flujo funcional end-to-end
+#### SOFEA - System level
 
-1. Usuario profesor crea/inicia stream desde el frontend.
-2. OBS publica video por RTMP a `mediamtx`.
-3. `stream-engine` autoriza publish/read y entrega sesiones de visualizacion.
-4. Estudiantes consumen la transmision por WebRTC/WHEP en navegador.
-5. Al finalizar, `mediamtx` deja el archivo en volumen compartido (`/recordings`).
-6. `record-service` detecta archivo estable, lo sube a MinIO y persiste metadatos en su DB.
-7. Frontend consulta `/api/recordings` para mostrar el catalogo historico.
+SOFEA describes a system where a rich client (typically a Single-Page Application or a hybrid SSR/SPA) is fully decoupled from one or more backend services and communicates with them exclusively over a network protocol — in this case, HTTP/REST. The frontend is an independently deployable artifact, not a view rendered by the server.
 
-## Estructura del repositorio
+Blume was designed following a SOFEA architecture, as evidenced by the following components:
+
+- `arquisoft-frontend` (Next.js) is deployed independently from the backend services. It has no runtime coupling to `business-logic` or `stream-engine` beyond HTTP calls.
+- All communication between the frontend and the backends is stateless HTTP/REST over JSON. Session state is carried by a signed JWT stored in an httpOnly cookie, not in server-side session objects.
+- The frontend initiates all cross-component interactions. Neither `business-logic` nor `stream-engine` pushes data to the frontend except via polling or SSE (Server-Sent Events) responses to client-initiated requests.
+- Each of the three main components (`arquisoft-frontend`, `business-logic`, `stream-engine`) can be built, tested, and deployed independently, which is the defining characteristic of SOFEA.
+
+#### Layered (Hexagonal) Architecture — Component Level
+
+Within `business-logic`, the internal structure follows Hexagonal Architecture, organized via vertical slicing by feature domain. This is a variant of layered architecture where the dependency direction is strictly inward: outer layers (infrastructure, adapters) depend on inner layers (application, domain), never the reverse.
+
+The layers within each vertical slice are:
+
+1. **Domain Layer** — Contains entities, value objects, domain exceptions, and port interfaces (both inbound and outbound). Has zero dependencies on any framework. Defines what the system *is*.
+2. **Application Layer** — Contains use case orchestrators (services). Depends only on domain ports (interfaces). Defines what the system *does*, without knowing how it is delivered or persisted.
+3. **Infrastructure Layer** — Contains all adapters: inbound (HTTP controllers, filters) and outbound (JPA repositories, SMTP client, Firebase SDK client, JWT library). Depends on the application and domain layers. Defines how the system *connects* to the outside world.
+
+This structure applies per feature slice (`authentication/`, `channels/`, `activities/`, etc.), so each feature is a self-contained vertical unit with its own domain, application, and infrastructure sub-packages.
+
+`stream-engine` (Go + Gin) follows a simpler layered structure given its narrower scope: a `config` package, a `server` package (routing and middleware), and `internal` packages per concern (`auth`, `signaling`, `media`), with no external dependencies between them.
+
+### Description of architectural elements and relationships
+
+#### Architectural elements
+
+| Component | Technology | Role |
+|---|---|---|
+| `arquisoft-frontend` | Next.js 16, TypeScript, React 19 | Rich web client. Serves all user-facing pages, manages session state via React Context, and consumes both backend services over HTTP. |
+| `business-logic` | Spring Boot 3.3.5, Java 21 | Central backend. Handles user authentication (local and Google/Firebase), session management via signed JWT cookies, password reset via SMTP, and all core business domain logic. |
+| `stream-engine` | Go 1.22+, Gin | Streaming orchestration server. Validates RTMP stream keys for MediaMTX, generates WHEP URLs for WebRTC-based playback, and tracks live viewer counts. |
+|`record-service`|Go Service |Recording processing; scans files, uploads to S3/MinIO, and saves metadata.|
+| `MySQL 8.4` | Relational Database | Primary data store. Holds users, roles, auth providers, password reset tokens, channels, streams, chat messages, viewer sessions, and analytics events. Managed via Flyway migrations (6 versioned scripts). |
+| `MediaMTX` | bluenviron/mediamtx (Docker) | Media server (RTMP ingest, WHEP/WebRTC playback, and recording generation). |
+| `Cloudflare R2` | Object Storage + CDN | Hosts the HLS media segments produced by MediaMTX and delivers them to browsers with CDN caching. |
+| Minio|MinIO console | S3-compatible object storage.|
+| `Firebase` | Google Identity Platform | Provides Google OAuth. The frontend uses the Firebase JS SDK to obtain an ID token; `business-logic` verifies it using the Firebase Admin SDK (service account). |
+| `traefik` |Traefik (Docker)| Single local gateway for the frontend and APIs (conceptual parity with cloud deployment).|
+
+
+#### End-to-end functional flow
+
+1. The instructor creates/starts the stream from the frontend.
+
+2. OBS publishes the video via RTMP to `mediamtx`.
+
+3. `stream-engine` authorizes publish/read access and delivers viewing sessions.
+
+4. Students access the stream via WebRTC/WHEP in their browsers.
+
+5. Upon completion, `mediamtx` saves the file to the shared volume (`/recordings`).
+
+6. `record-service` detects a stable file, uploads it to MinIO, and persists metadata in its database.
+
+7. The frontend queries `/api/recordings` to display the historical catalog.
+
+### General structure
 
 ```text
 1C/
-├── infrastructure/   # Compose local, gateway, variables y documentacion de ejecucion
-├── arquisoft-front/  # Frontend Next.js
-├── business-logic/   # API Spring Boot (auth + negocio)
-├── stream-engine/    # API Go (control de streaming + hooks MediaMTX)
-└── record-service/   # Servicio Go (procesamiento y catalogo de grabaciones)
+├── infrastructure/   # Compose local, gateway, variables and execution documentation
+├── arquisoft-front/  # Next.js Frontend
+├── business-logic/   # API Spring Boot (auth + business)
+├── stream-engine/    # API Go (streaming control + MediaMTX hooks)
+└── record-service/   # Go service (recordings process and catalog)
 ```
 
-## Servicios y puertos principales
+### Main services and ports
 
-| Servicio | URL / Puerto | Uso |
+| Service | URL / Port | Use |
 |---|---|---|
-| Gateway `traefik` | `http://localhost` | Entrada unica (frontend + APIs) |
-| Dashboard Traefik | `http://localhost:8088` | Debug de routing |
-| Media ingest RTMP | `rtmp://localhost:1935/live` | Publicacion desde OBS |
-| Media playback WHEP | `http://localhost:8889` | Reproduccion WebRTC |
-| MySQL negocio | `localhost:3306` | Datos de `business-logic` |
-| MinIO API | `http://localhost:9000` | Objetos de grabaciones |
-| MinIO consola | `http://localhost:9001` | Administracion de bucket |
+| Gateway `traefik` | `http://localhost` | Unique entrypoint (frontend + APIs) |
+| Dashboard Traefik | `http://localhost:8088` | Routing debugging |
+| Media ingest RTMP | `rtmp://localhost:1935/live` | OBS publishing |
+| Media playback WHEP | `http://localhost:8889` | WebRTC reproduction|
+| MySQL business | `localhost:3306` | `business-logic` data |
+| MinIO API | `http://localhost:9000` | Recording objects |
+| MinIO console | `http://localhost:9001` | Bucket management |
 
-## Arranque rapido local
+## Prototype (Instructions to run project)
 
-Desde `infrastructure/`:
+### Prerequisites
+
+| Tool | Version | Purpose |
+|---|---|---|
+| Docker + Docker Compose | Latest stable | MySQL, MediaMTX |
+
+From `infrastructure/`:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Accesos recomendados:
+Recommended endpoints:
 
 - App: `http://localhost/explorar`
-- Grabaciones: `http://localhost/grabaciones`
+- Recordings: `http://localhost/grabaciones`
 
-Apagar y limpiar volumenes:
+Shut down and clean volumes:
 
 ```bash
 docker compose down -v
 ```
 
-## Endpoints clave (via gateway)
+### Key endpoints
 
-- Auth y negocio: `GET/POST /api/auth/*`, `GET /api/health`
+- Auth and business: `GET/POST /api/auth/*`, `GET /api/health`
 - Streaming:
   - `POST /auth/mediamtx`
   - `GET /api/viewer-session?path=/live/<key>`
   - `GET /api/stats`
-- Grabaciones:
+- Recordings:
   - `GET /api/recordings`
   - `GET /api/recordings/:id`
-  - `POST /internal/recordings/reconcile` (operacion interna/manual)
+  - `POST /internal/recordings/reconcile` (manual/internal operation)
 
-## Variables y secretos importantes
+### Variables and secrets
 
-- `infrastructure/.env` define credenciales DB/MinIO y valores de runtime compartidos.
-- Requiere credencial Firebase para `business-logic`:
-  - archivo: `business-logic/backend-core/firebase/serviceAccountKey.json`
-  - se monta como volumen de solo lectura en contenedor.
-- En local, `record-service` usa endpoint S3 interno (`minio`) y URL publica local para reproduccion.
+- `infrastructure/.env` defines shared DB/MinIO credentials and runtime values.
 
-## Despliegue cloud (Terraform)
+- Requires Firebase credentials for `business-logic`:
 
-La carpeta de infraestructura contempla despliegue productivo con componentes equivalentes:
+- file: `business-logic/firebase/serviceAccountKey.json`
 
-- servicios en contenedores (incluyendo `record-service`);
-- storage de objetos para grabaciones;
-- base de datos dedicada para metadatos de recordings;
-- imagenes en registry y ruteo para `/api/recordings/*`.
+- Mounted as a read-only volume in a container.
+
+- On-premises, `record-service` uses an internal S3 endpoint (`minio`) and a local public URL for playback.
+
+### Cloud deployment
+
+The infrastructure folder includes a production deployment with equivalent components:
+
+- containerized services (including `record-service`);
+
+- object storage for recordings;
+
+- dedicated database for recording metadata;
+
+- registry images and routing for `/api/recordings/*`.
