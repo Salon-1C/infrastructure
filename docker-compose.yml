@@ -1,0 +1,105 @@
+services:
+
+  # ── Database ──────────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - blume_net
+
+  # ── Business Logic (Spring Boot) ─────────────────────────────────────────────
+  business-logic:
+    build:
+      context: ../business-logic/backend-core
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-86400}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      HLS_SIGNING_SECRET: ${HLS_SIGNING_SECRET:-unused}
+      HLS_URL_TTL_SECONDS: ${HLS_URL_TTL_SECONDS:-3600}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-dummy}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-dummy}
+      FIREBASE_SERVICE_ACCOUNT_PATH: /app/firebase/serviceAccountKey.json
+    volumes:
+      - ../business-logic/backend-core/firebase/serviceAccountKey.json:/app/firebase/serviceAccountKey.json:ro
+    networks:
+      - blume_net
+
+  # ── Stream Engine (Go control plane) ─────────────────────────────────────────
+  stream-engine:
+    build:
+      context: ../stream-engine
+    restart: unless-stopped
+    ports:
+      - "9090:8080"
+    environment:
+      HTTP_LISTEN_ADDR: ":8080"
+      STREAM_KEY: ${STREAM_KEY}
+      # MEDIAMTX_HTTP_URL must be reachable from the browser (not from inside
+      # Docker), because it is returned verbatim to the client as the WHEP URL.
+      MEDIAMTX_HTTP_URL: "http://localhost:8889"
+    networks:
+      - blume_net
+
+  # ── MediaMTX (RTMP ingest + WebRTC/WHEP playback) ────────────────────────────
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "1935:1935"   # RTMP (OBS publish)
+      - "8889:8889"   # WebRTC / WHEP (browser play)
+    volumes:
+      - ../stream-engine/configs/mediamtx.compose.yml:/mediamtx.yml:ro
+    depends_on:
+      - stream-engine
+    networks:
+      - blume_net
+
+  # ── Frontend (Next.js) ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ../arquisoft-front
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:8080"
+        NEXT_PUBLIC_STREAM_URL: "http://localhost:9090"
+        NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - business-logic
+      - stream-engine
+    networks:
+      - blume_net
+
+volumes:
+  mysql_data:
+
+networks:
+  blume_net:
+    driver: bridge
