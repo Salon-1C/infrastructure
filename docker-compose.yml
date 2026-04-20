@@ -59,9 +59,9 @@ services:
       - "9090:8080"
     environment:
       HTTP_LISTEN_ADDR: ":8080"
-      STREAM_KEY: ${STREAM_KEY}
-      # MEDIAMTX_HTTP_URL must be reachable from the browser (not from inside
-      # Docker), because it is returned verbatim to the client as the WHEP URL.
+      # STREAM_KEY is intentionally omitted so the auth hook accepts any
+      # /live/<key> path (multi-stream mode).
+      # MEDIAMTX_HTTP_URL must be the browser-reachable URL (not internal Docker).
       MEDIAMTX_HTTP_URL: "http://localhost:8889"
     networks:
       - blume_net
