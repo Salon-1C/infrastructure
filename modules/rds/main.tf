@@ -36,10 +36,10 @@ resource "aws_db_instance" "this" {
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [var.rds_sg_id]
 
-  multi_az               = false
-  publicly_accessible    = false
-  skip_final_snapshot    = true
-  deletion_protection    = false
+  multi_az            = false
+  publicly_accessible = false
+  skip_final_snapshot = true
+  deletion_protection = false
 
   backup_retention_period = 7
   backup_window           = "03:00-04:00"

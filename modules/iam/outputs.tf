@@ -17,3 +17,8 @@ output "stream_engine_task_role_arn" {
   description = "ARN of the ECS task role for stream-engine"
   value       = aws_iam_role.stream_engine_task.arn
 }
+
+output "record_service_task_role_arn" {
+  description = "ARN of the ECS task role for record-service"
+  value       = aws_iam_role.record_service_task.arn
+}

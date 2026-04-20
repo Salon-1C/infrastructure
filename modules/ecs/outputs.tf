@@ -32,3 +32,7 @@ output "business_logic_service_name" {
 output "stream_engine_service_name" {
   value = aws_ecs_service.stream_engine.name
 }
+
+output "record_service_name" {
+  value = aws_ecs_service.record_service.name
+}

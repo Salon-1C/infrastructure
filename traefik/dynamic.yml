@@ -1,0 +1,40 @@
+http:
+  routers:
+    recordings:
+      rule: "PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`)"
+      entryPoints: ["web"]
+      priority: 40
+      service: recordings
+    stream:
+      rule: "Path(`/api/viewer-session`) || PathPrefix(`/api/viewers`) || Path(`/api/stats`) || Path(`/auth/mediamtx`)"
+      entryPoints: ["web"]
+      priority: 30
+      service: stream
+    business:
+      rule: "PathPrefix(`/api`)"
+      entryPoints: ["web"]
+      priority: 10
+      service: business
+    frontend:
+      rule: "PathPrefix(`/`)"
+      entryPoints: ["web"]
+      priority: 1
+      service: frontend
+
+  services:
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:3000"
+    business:
+      loadBalancer:
+        servers:
+          - url: "http://business-logic:8080"
+    stream:
+      loadBalancer:
+        servers:
+          - url: "http://stream-engine:8080"
+    recordings:
+      loadBalancer:
+        servers:
+          - url: "http://record-service:8081"

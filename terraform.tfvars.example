@@ -11,6 +11,9 @@ github_org = "Salon-1C"
 # ── Database ──────────────────────────────────────────────────────────────────
 db_name           = "blume"
 db_instance_class = "db.t3.micro"
+recordings_db_name           = "recordings"
+recordings_db_instance_class = "db.t3.micro"
+recordings_bucket_name       = "blume-recordings-prod-unique-suffix"
 
 # ── Application ───────────────────────────────────────────────────────────────
 # The URL your frontend is hosted at (used for CORS)
@@ -40,3 +43,4 @@ mail_username = "noreply@example.com"
 # ── ECS Capacity ──────────────────────────────────────────────────────────────
 business_logic_desired_count = 1
 stream_engine_desired_count  = 1
+record_service_desired_count = 1

@@ -37,6 +37,10 @@ variable "stream_engine_task_role_arn" {
   type = string
 }
 
+variable "record_service_task_role_arn" {
+  type = string
+}
+
 # ── ECR images ────────────────────────────────────────────────────────────────
 variable "blume_backend_image_url" {
   description = "ECR repository URL for blume-backend (without tag)"
@@ -45,6 +49,11 @@ variable "blume_backend_image_url" {
 
 variable "stream_engine_image_url" {
   description = "ECR repository URL for stream-engine (without tag)"
+  type        = string
+}
+
+variable "record_service_image_url" {
+  description = "ECR repository URL for record-service (without tag)"
   type        = string
 }
 
@@ -59,6 +68,23 @@ variable "db_name" {
 }
 
 variable "db_password_secret_arn" {
+  type = string
+}
+
+variable "recordings_db_host" {
+  type = string
+}
+
+variable "recordings_db_name" {
+  type    = string
+  default = "recordings"
+}
+
+variable "recordings_db_password_secret_arn" {
+  type = string
+}
+
+variable "recordings_bucket_name" {
   type = string
 }
 
@@ -136,6 +162,21 @@ variable "stream_engine_memory" {
 }
 
 variable "stream_engine_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "record_service_cpu" {
+  type    = number
+  default = 512
+}
+
+variable "record_service_memory" {
+  type    = number
+  default = 1024
+}
+
+variable "record_service_desired_count" {
   type    = number
   default = 1
 }

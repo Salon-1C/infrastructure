@@ -59,6 +59,12 @@ resource "aws_cloudwatch_log_group" "stream_engine" {
   tags              = { Project = var.project }
 }
 
+resource "aws_cloudwatch_log_group" "record_service" {
+  name              = "/ecs/${var.project}/record-service"
+  retention_in_days = 14
+  tags              = { Project = var.project }
+}
+
 # ── ECS Cluster ───────────────────────────────────────────────────────────────
 resource "aws_ecs_cluster" "this" {
   name = var.project
@@ -142,6 +148,25 @@ resource "aws_lb_target_group" "stream_engine_http" {
   tags = { Project = var.project }
 }
 
+resource "aws_lb_target_group" "record_service_http" {
+  name        = "${var.project}-rec-http-tg"
+  port        = 8081
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    path                = "/health"
+    protocol            = "HTTP"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+    timeout             = 5
+  }
+
+  tags = { Project = var.project }
+}
+
 # Route /stream/* to the stream-engine Go server
 resource "aws_lb_listener_rule" "stream_engine" {
   listener_arn = aws_lb_listener.http.arn
@@ -155,6 +180,22 @@ resource "aws_lb_listener_rule" "stream_engine" {
   condition {
     path_pattern {
       values = ["/stream/*", "/api/viewer-session", "/api/viewers/*", "/api/stats", "/auth/mediamtx"]
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "record_service" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 11
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.record_service_http.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/recordings", "/api/recordings/*"]
     }
   }
 }
@@ -358,6 +399,54 @@ resource "aws_ecs_task_definition" "stream_engine" {
   tags = { Project = var.project }
 }
 
+resource "aws_ecs_task_definition" "record_service" {
+  family                   = "${var.project}-record-service"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.record_service_cpu
+  memory                   = var.record_service_memory
+  execution_role_arn       = var.ecs_task_execution_role_arn
+  task_role_arn            = var.record_service_task_role_arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "record-service"
+      image     = "${var.record_service_image_url}:latest"
+      essential = true
+
+      portMappings = [
+        { containerPort = 8081, protocol = "tcp" }
+      ]
+
+      environment = [
+        { name = "HTTP_LISTEN_ADDR", value = ":8081" },
+        { name = "DB_HOST", value = var.recordings_db_host },
+        { name = "DB_PORT", value = "3306" },
+        { name = "DB_NAME", value = var.recordings_db_name },
+        { name = "DB_USER", value = "admin" },
+        { name = "S3_BUCKET", value = var.recordings_bucket_name },
+        { name = "S3_REGION", value = data.aws_region.current.name },
+        { name = "RECORDINGS_DIR", value = "/recordings" },
+      ]
+
+      secrets = [
+        { name = "DB_PASSWORD", valueFrom = var.recordings_db_password_secret_arn },
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.record_service.name
+          "awslogs-region"        = data.aws_region.current.name
+          "awslogs-stream-prefix" = "record-service"
+        }
+      }
+    }
+  ])
+
+  tags = { Project = var.project }
+}
+
 # ── ECS Services ──────────────────────────────────────────────────────────────
 resource "aws_ecs_service" "business_logic" {
   name            = "business-logic"
@@ -428,6 +517,34 @@ resource "aws_ecs_service" "stream_engine" {
     aws_lb_listener.webrtc,
     aws_lb_listener_rule.stream_engine,
   ]
+
+  tags = { Project = var.project }
+}
+
+resource "aws_ecs_service" "record_service" {
+  name            = "record-service"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.record_service.arn
+  desired_count   = var.record_service_desired_count
+  launch_type     = "FARGATE"
+
+  force_new_deployment               = true
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+
+  network_configuration {
+    subnets          = var.private_subnet_ids
+    security_groups  = [var.ecs_sg_id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.record_service_http.arn
+    container_name   = "record-service"
+    container_port   = 8081
+  }
+
+  depends_on = [aws_lb_listener_rule.record_service]
 
   tags = { Project = var.project }
 }

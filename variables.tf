@@ -34,6 +34,23 @@ variable "db_instance_class" {
   default     = "db.t3.micro"
 }
 
+variable "recordings_db_name" {
+  description = "MySQL database name for recordings microservice"
+  type        = string
+  default     = "recordings"
+}
+
+variable "recordings_db_instance_class" {
+  description = "RDS instance class for recordings database"
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "recordings_bucket_name" {
+  description = "S3 bucket name for recorded files"
+  type        = string
+}
+
 # ── Application ───────────────────────────────────────────────────────────────
 variable "allowed_origin" {
   description = "CORS allowed origin for the Spring Boot API (e.g. https://app.example.com)"
@@ -91,6 +108,11 @@ variable "business_logic_desired_count" {
 }
 
 variable "stream_engine_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "record_service_desired_count" {
   type    = number
   default = 1
 }

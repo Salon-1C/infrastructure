@@ -23,6 +23,11 @@ output "stream_engine_ecr_url" {
   value       = module.ecr.stream_engine_url
 }
 
+output "record_service_ecr_url" {
+  description = "ECR URL for record-service image"
+  value       = module.ecr.record_service_url
+}
+
 output "github_deploy_role_arn" {
   description = "Copy this ARN into AWS_ROLE_ARN secret in both GitHub repos"
   value       = module.iam.github_deploy_role_arn
@@ -31,4 +36,14 @@ output "github_deploy_role_arn" {
 output "rds_endpoint" {
   description = "RDS MySQL endpoint"
   value       = module.rds.endpoint
+}
+
+output "recordings_rds_endpoint" {
+  description = "Dedicated RDS endpoint for recordings"
+  value       = module.rds_recordings.endpoint
+}
+
+output "recordings_bucket_name" {
+  description = "S3 bucket used by recordings service"
+  value       = module.s3_recordings.bucket_name
 }

@@ -13,3 +13,8 @@ variable "github_repos" {
   type        = list(string)
   default     = ["business-logic", "stream-engine"]
 }
+
+variable "recordings_bucket_arn" {
+  description = "S3 bucket ARN for recordings objects"
+  type        = string
+}

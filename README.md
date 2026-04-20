@@ -1,77 +1,69 @@
-# Infrastructure — Prueba de sistema local
+# Infrastructure — Prueba local end-to-end
 
-Este `docker-compose.yml` levanta el stack completo de Blume para pruebas de sistema end-to-end: frontend Next.js, backend Spring Boot, MySQL, stream-engine Go y MediaMTX.
+Este `docker-compose.yml` levanta el stack completo con API Gateway local (`traefik`) para mantener paridad conceptual con cloud:
+
+- frontend (`arquisoft-front`)
+- `business-logic`
+- `stream-engine`
+- `mediamtx` (ingest + playback + recordings)
+- `record-service` (metadatos + upload a objeto)
+- MySQL principal + MySQL dedicado para recordings
+- MinIO (S3 local)
 
 ## Servicios y puertos
 
 | Servicio | Host | Descripción |
 |---|---|---|
-| `frontend` | http://localhost:3000 | Next.js (arquisoft-front) |
-| `business-logic` | http://localhost:8080 | Spring Boot API |
-| `stream-engine` | http://localhost:9090 | Go API (viewer-session, stats, auth hook) |
-| `mediamtx` — RTMP | rtmp://localhost:1935 | Ingest desde OBS u otro cliente |
-| `mediamtx` — WHEP | http://localhost:8889 | WebRTC playback desde el navegador |
-| `mysql` | localhost:3306 | Base de datos MySQL 8.4 |
+| `traefik` | http://localhost | Gateway local para front + APIs |
+| `traefik dashboard` | http://localhost:8088 | Debug de routing |
+| `mediamtx` RTMP | rtmp://localhost:1935 | Ingest desde OBS |
+| `mediamtx` WHEP | http://localhost:8889 | Playback WebRTC |
+| `mysql` | localhost:3306 | DB de business-logic |
+| `recordings-mysql` | interno compose | DB dedicada de recordings |
+| `minio` API | http://localhost:9000 | Storage S3-compatible |
+| `minio` consola | http://localhost:9001 | UI de objetos |
 
 ## Arranque rápido
 
 ```bash
-# 1. Copia y completa las variables de entorno
 cp .env.example .env
-
-# 2. Levanta todos los servicios (el primer build tarda varios minutos)
 docker compose up --build
-
-# 3. Abre el front en el navegador
-open http://localhost:3000
 ```
+
+Navega al front por el gateway:
+
+- `http://localhost/explorar`
+- `http://localhost/grabaciones`
 
 Para parar y limpiar:
-```bash
-docker compose down -v   # -v elimina el volumen de MySQL
-```
-
-## Publicar un stream (OBS)
-
-1. En OBS > Configuración > Stream:
-   - **Servicio:** Personalizado
-   - **Servidor:** `rtmp://localhost:1935/live`
-   - **Clave de retransmisión:** el valor de `STREAM_KEY` en tu `.env`
-2. Pulsa "Iniciar transmisión".
-3. Abre http://localhost:3000/clase/demo — el reproductor WebRTC conectará automáticamente.
-
-## Ver el stream en el front
-
-Navega a cualquier ruta `/clase/<id>`. La página lee `NEXT_PUBLIC_STREAM_KEY` (baked en el build de Docker) y abre la sesión WHEP. El flujo es:
-
-```
-Browser → GET http://localhost:9090/api/viewer-session?path=/live/<KEY>
-       ← { whep_url: "http://localhost:8889/live/<KEY>/whep" }
-Browser → POST SDP a whep_url
-       ← SDP answer + WebRTC track
-```
-
-## Bloqueadores conocidos en `business-logic`
-
-Los siguientes archivos tienen **marcadores de merge conflict** y deben resolverse manualmente antes de poder construir la imagen de `business-logic`:
-
-- `business-logic/backend-core/Dockerfile`
-- `business-logic/backend-core/src/main/resources/application.yml`
-- `business-logic/backend-core/src/main/java/com/blume/shared/infrastructure/config/FirebaseConfig.java`
-- `business-logic/docker-compose.yml`
-- `business-logic/.github/workflows/docker-erc.yml`
-
-Hasta resolver esos conflictos, el servicio `business-logic` no compilará con `docker compose up --build`. Los demás servicios (stream-engine, mediamtx, frontend) pueden arrancarse por separado:
 
 ```bash
-docker compose up --build frontend stream-engine mediamtx
+docker compose down -v
 ```
 
-## Notas de infraestructura Terraform (AWS)
+## Flujo E2E: stream + grabación + catálogo histórico
 
-El Terraform en este directorio no requiere cambios para la integración de streaming: ya contiene las reglas ALB para `/api/viewer-session`, `/api/viewers/*`, `/api/stats`, `/auth/mediamtx` → stream-engine, y el NLB para RTMP (1935) y WHEP (8889).
+1. Crea un stream desde `/transmitir` (vista profesor).
+2. Publica desde OBS:
+   - Servidor: `rtmp://localhost:1935/live`
+   - Stream key: la generada en `/transmitir`
+3. Detén la transmisión.
+4. MediaMTX deja archivos en `/recordings` (volumen compartido).
+5. `record-service` detecta archivo estable, lo sube a MinIO y persiste metadatos.
+6. Abre `/grabaciones` y valida que aparezca en la lista.
 
-Dos inconsistencias pre-existentes para resolver antes de un despliegue en producción:
+## Endpoints clave (vía gateway)
 
-- `MAIL_PASSWORD` en la task ECS de `business-logic` apunta al secret de Firebase (probablemente un copy-paste).
-- `ALLOWED_ORIGIN` (nombre en ECS) vs `ALLOWED_ORIGINS` (nombre en Spring `application.yml`) — la app Spring no leerá el valor de ECS tal como está.
+- `GET /api/recordings`
+- `GET /api/recordings/:id`
+- `POST /internal/recordings/reconcile` (uso interno/manual)
+
+## Terraform (producción)
+
+El Terraform ahora contempla:
+
+- `record-service` como ECS service adicional
+- bucket S3 dedicado para grabaciones
+- RDS dedicado para metadatos de recordings
+- nuevo ECR (`record-service`)
+- routing ALB/API Gateway para `/api/recordings/*`
