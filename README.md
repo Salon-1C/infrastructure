@@ -194,3 +194,13 @@ The infrastructure folder includes a production deployment with equivalent compo
 - dedicated database for recording metadata;
 
 - registry images and routing for `/api/recordings/*`.
+
+## Repositories
+
+[business-logic](https://github.com/Salon-1C/business-logic)
+
+[infrastructure](https://github.com/Salon-1C/infrastructure)
+
+[stream-engine](https://github.com/Salon-1C/stream-engine)
+
+[arquisoft-front](https://github.com/Salon-1C/arquisoft-front)
