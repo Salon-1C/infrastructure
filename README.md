@@ -35,28 +35,42 @@ Streaming and learning platform composed of microservices. It allows user authen
 
 ### Description of architectural styles used
 
-Blume follows a **SOFEA (Service-Oriented Front-End Architecture)** style at the system level, with each backend component internally organized as a **Layered (Hexagonal) Architecture**.
+## System architecture
 
-#### SOFEA - System level
+Blume is built as a microservices architecture. Each service is independently developed, deployed, and scaled. Services own their domain and communicate over HTTP; no shared database or shared runtime exists between them.
 
-SOFEA describes a system where a rich client (typically a Single-Page Application or a hybrid SSR/SPA) is fully decoupled from one or more backend services and communicates with them exclusively over a network protocol — in this case, HTTP/REST. The frontend is an independently deployable artifact, not a view rendered by the server.
 
-Blume was designed following a SOFEA architecture, as evidenced by the following components:
 
-- `arquisoft-frontend` (Next.js) is deployed independently from the backend services. It has no runtime coupling to `business-logic` or `stream-engine` beyond HTTP calls.
-- All communication between the frontend and the backends is stateless HTTP/REST over JSON. Session state is carried by a signed JWT stored in an httpOnly cookie, not in server-side session objects.
-- The frontend initiates all cross-component interactions. Neither `business-logic` nor `stream-engine` pushes data to the frontend except via polling or SSE (Server-Sent Events) responses to client-initiated requests.
-- Each of the three main components (`arquisoft-frontend`, `business-logic`, `stream-engine`) can be built, tested, and deployed independently, which is the defining characteristic of SOFEA.
+**Why microservices and not a monolith or SOA:**
 
-#### Layered (Hexagonal) Architecture — Component Level
+First of all, the system has to be designed to offer independent deployability. Each service has its own `Dockerfile`, its own deployment pipeline, and can be updated or scaled without touching the others. The stream engine can be scaled horizontally for peak broadcast load while business-logic remains unchanged.
+
+Each domain handles its own individual responsabilities. `business-logic` owns users, channels, classes, and notes. `stream-engine` owns stream sessions, HLS segments, and viewer counts. Neither service reads the other's database.
+
+Each service is written in the language best suited for its workload
+
+- Java/Spring Boot for transactional business logic
+- Go/Gin for high-concurrency streaming and SSE
+- TypeScript/Next.js for the frontend. 
+
+This is only practical when services are truly independent.
+
+
+Additional services (recommendations, notifications, analytics, billing) will be added as independent deployable units without modifying existing ones. The service boundary is the contract, not the codebase.
+
+On the other hand, communication is handled through HTTP-based connectors. Services integrate exclusively through documented HTTP contracts. `stream-engine` exposes internal REST endpoints that `business-logic` calls to resolve live stream metadata. The frontend calls both services directly for their respective domains.
+
+#### Internal architecture
+
+
 
 Within `business-logic`, the internal structure follows Hexagonal Architecture, organized via vertical slicing by feature domain. This is a variant of layered architecture where the dependency direction is strictly inward: outer layers (infrastructure, adapters) depend on inner layers (application, domain), never the reverse.
 
 The layers within each vertical slice are:
 
 1. **Domain Layer** — Contains entities, value objects, domain exceptions, and port interfaces (both inbound and outbound). Has zero dependencies on any framework. Defines what the system *is*.
-2. **Application Layer** — Contains use case orchestrators (services). Depends only on domain ports (interfaces). Defines what the system *does*, without knowing how it is delivered or persisted.
-3. **Infrastructure Layer** — Contains all adapters: inbound (HTTP controllers, filters) and outbound (JPA repositories, SMTP client, Firebase SDK client, JWT library). Depends on the application and domain layers. Defines how the system *connects* to the outside world.
+2. **Application Layer** — Contains use case orchestrators (services). Depends only on domain ports (interfaces). Defines what the system does, without knowing how it is delivered or persisted.
+3. **Infrastructure Layer** — Contains all adapters: inbound (HTTP controllers, filters) and outbound (JPA repositories, SMTP client, Firebase SDK client, JWT library). Depends on the application and domain layers. Defines how the system connects to the outside world.
 
 This structure applies per feature slice (`authentication/`, `channels/`, `activities/`, etc.), so each feature is a self-contained vertical unit with its own domain, application, and infrastructure sub-packages.
 
@@ -70,7 +84,7 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 |---|---|---|
 | `arquisoft-frontend` | Next.js 16, TypeScript, React 19 | Rich web client. Serves all user-facing pages, manages session state via React Context, and consumes both backend services over HTTP. |
 | `business-logic` | Spring Boot 3.3.5, Java 21 | Central backend. Handles user authentication (local and Google/Firebase), session management via signed JWT cookies, password reset via SMTP, and all core business domain logic. |
-| `stream-engine` | Go 1.22+, Gin | Streaming orchestration server. Validates RTMP stream keys for MediaMTX, generates WHEP URLs for WebRTC-based playback, and tracks live viewer counts. |
+| `stream-engine` | Go 1.22+ | Streaming orchestration server. Validates RTMP stream keys for MediaMTX, generates WHEP URLs for WebRTC-based playback, and tracks live viewer counts. |
 |`record-service`|Go Service |Recording processing; scans files, uploads to S3/MinIO, and saves metadata.|
 | `MySQL 8.4` | Relational Database | Primary data store. Holds users, roles, auth providers, password reset tokens, channels, streams, chat messages, viewer sessions, and analytics events. Managed via Flyway migrations (6 versioned scripts). |
 | `MediaMTX` | bluenviron/mediamtx (Docker) | Media server (RTMP ingest, WHEP/WebRTC playback, and recording generation). |
