@@ -94,6 +94,8 @@ services:
       # /live/<key> path (multi-stream mode).
       # MEDIAMTX_HTTP_URL must be the browser-reachable URL (not internal Docker).
       MEDIAMTX_HTTP_URL: "http://localhost:8889"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      RABBITMQ_QUEUE: "recordings.ready"
     labels:
       - traefik.enable=true
       - traefik.http.routers.stream.rule=Path(`/api/viewer-session`) || PathPrefix(`/api/viewers`) || Path(`/api/stats`) || Path(`/auth/mediamtx`)
@@ -112,9 +114,18 @@ services:
       - "8889:8889"   # WebRTC / WHEP (browser play)
     volumes:
       - ../stream-engine/configs/mediamtx.compose.yml:/mediamtx.yml:ro
-      - recordings_data:/recordings
     depends_on:
       - stream-engine
+      - rabbitmq
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - blume_net
+
     networks:
       - blume_net
 
@@ -168,6 +179,8 @@ services:
       context: ../record-service
     restart: unless-stopped
     depends_on:
+      rabbitmq:
+        condition: service_started
       recordings-mysql:
         condition: service_healthy
       minio-init:
@@ -182,6 +195,8 @@ services:
       RECORDINGS_DIR: /recordings
       SCAN_INTERVAL: 10s
       STABLE_WINDOW: 20s
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      RABBITMQ_QUEUE: "recordings.ready"
       S3_REGION: us-east-1
       S3_ENDPOINT: http://minio:9000
       S3_BUCKET: ${MINIO_BUCKET}
@@ -189,8 +204,6 @@ services:
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       S3_USE_PATH_STYLE: "true"
       S3_PUBLIC_BASE_URL: http://localhost:9000/${MINIO_BUCKET}
-    volumes:
-      - recordings_data:/recordings
     labels:
       - traefik.enable=true
       - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || Path(`/health`)
@@ -225,7 +238,6 @@ services:
 
 volumes:
   mysql_data:
-  recordings_data:
   recordings_mysql_data:
   minio_data:
 

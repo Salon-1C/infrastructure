@@ -104,11 +104,15 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 
 4. Students access the stream via WebRTC/WHEP in their browsers.
 
-5. Upon completion, `mediamtx` saves the file to the shared volume (`/recordings`).
+5. Upon completion of each segment, `mediamtx` captures the fragment and emits it as a queued event payload.
 
-6. `record-service` detects a stable file, uploads it to MinIO, and persists metadata in its database.
+6. `mediamtx` notifies `stream-engine` when a record segment is closed.
 
-7. The frontend queries `/api/recordings` to display the historical catalog.
+7. `stream-engine` publishes that event into RabbitMQ (`recordings.ready`).
+
+8. `record-service` consumes each queued fragment asynchronously, uploads to MinIO, and persists metadata.
+
+9. The frontend queries `/api/recordings` to display the historical catalog.
 
 ### General structure
 
@@ -119,6 +123,30 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 ├── business-logic/   # API Spring Boot (auth + business)
 ├── stream-engine/    # API Go (streaming control + MediaMTX hooks)
 └── record-service/   # Go service (recordings process and catalog)
+```
+
+### Clone all repositories in one parent folder
+
+To run everything with a single `docker compose up`, clone all repositories under the same parent directory:
+
+```bash
+mkdir -p 1C && cd 1C
+git clone https://github.com/Salon-1C/infrastructure.git
+git clone https://github.com/Salon-1C/arquisoft-front.git
+git clone https://github.com/Salon-1C/business-logic.git
+git clone https://github.com/Salon-1C/stream-engine.git
+git clone https://github.com/Salon-1C/record-service.git
+```
+
+Expected folder layout:
+
+```text
+1C/
+├── infrastructure/
+├── arquisoft-front/
+├── business-logic/
+├── stream-engine/
+└── record-service/
 ```
 
 ### Main services and ports
@@ -132,6 +160,8 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 | MySQL business | `localhost:3306` | `business-logic` data |
 | MinIO API | `http://localhost:9000` | Recording objects |
 | MinIO console | `http://localhost:9001` | Bucket management |
+| RabbitMQ AMQP | `amqp://localhost:5672` | Queue for async recording processing |
+| RabbitMQ UI | `http://localhost:15672` | Queue monitoring (`guest/guest`) |
 
 ## Prototype (Instructions to run project)
 
@@ -152,6 +182,25 @@ Recommended endpoints:
 
 - App: `http://localhost/explorar`
 - Recordings: `http://localhost/grabaciones`
+
+### OBS configuration (recommended)
+
+Use these settings in OBS to publish stable streams to `mediamtx`:
+
+- **Service**: Custom
+- **Server**: `rtmp://localhost:1935/live`
+- **Stream key**: your stream key (for example: `abc123`)
+- **Audio encoder**: AAC
+- **Video encoder**: x264
+- **Rate control**: CBR
+- **Bitrate**: `6000 Kbps`
+- **Keyframe interval**: `2s`
+- **CPU usage preset**: `veryfast`
+- **Profile**: `baseline`
+
+Reference screenshot:
+
+![OBS recommended configuration](./diagrams/obs-config.jpeg)
 
 Shut down and clean volumes:
 
