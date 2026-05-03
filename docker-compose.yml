@@ -53,7 +53,7 @@ services:
   # ── Business Logic (Spring Boot) ─────────────────────────────────────────────
   business-logic:
     build:
-      context: ../business-logic/backend-core
+      context: ../blume_business_logic_ms/backend-core
     restart: unless-stopped
     depends_on:
       mysql:
@@ -75,13 +75,13 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-dummy}
       FIREBASE_SERVICE_ACCOUNT_PATH: /app/firebase/serviceAccountKey.json
     volumes:
-      - ../business-logic/firebase/serviceAccountKey.json:/app/firebase/serviceAccountKey.json:ro
+      - ../blume_business_logic_ms/firebase/serviceAccountKey.json:/app/firebase/serviceAccountKey.json:ro
     labels:
       - traefik.enable=true
       - traefik.http.routers.business.rule=PathPrefix(`/api`)
       - traefik.http.routers.business.entrypoints=web
       - traefik.http.routers.business.priority=10
-      - traefik.http.services.business.loadbalancer.server.port=8080
+      - traefik.http.services.business.loadbalancer.server.port=8082
     networks:
       - blume_net
 
@@ -189,12 +189,15 @@ services:
   # ── Frontend (Next.js) ───────────────────────────────────────────────────────
   frontend:
     build:
-      context: ../arquisoft-front
+      context: ../blume_wa
       args:
         NEXT_PUBLIC_API_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_URL: "http://localhost"
         NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
+    environment:
+      API_INTERNAL_URL: "http://business-logic:8082"
+      RECORDINGS_INTERNAL_URL: "http://record-service:8081"
     restart: unless-stopped
     depends_on:
       - business-logic
