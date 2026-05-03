@@ -34,7 +34,7 @@ http:
     business:
       loadBalancer:
         servers:
-          - url: "http://business-logic:8080"
+          - url: "http://business-logic:8082"
     stream:
       loadBalancer:
         servers:
