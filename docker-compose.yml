@@ -128,9 +128,6 @@ services:
     networks:
       - blume_net
 
-    networks:
-      - blume_net
-
   recordings-mysql:
     image: mysql:8.4
     restart: unless-stopped
