@@ -105,6 +105,7 @@ services:
       MEDIAMTX_HTTP_URL: "http://localhost:8889"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
+      JWT_SECRET: ${JWT_SECRET}
     labels:
       - traefik.enable=true
       - traefik.http.routers.stream.rule=Path(`/api/viewer-session`) || PathPrefix(`/api/viewers`) || Path(`/api/stats`) || Path(`/auth/mediamtx`)
