@@ -251,6 +251,223 @@ The infrastructure folder includes a production deployment with equivalent compo
 
 - registry images and routing for `/api/recordings/*`.
 
+
+
+# Decomposition Structure
+
+## Decomposition View Description
+
+The BLUME system is decomposed into a hierarchy of modules using a strict **“is part of”** relationship. This view describes the structural organization of the system, without representing control flow, communication, or runtime behavior.
+
+---
+
+## System Decomposition
+
+The **BLUME** system is decomposed into seven main modules:
+
+- blume_wa  
+- blume_ma  
+- blume_business_logic_ms  
+- blume_stream_ms  
+- blume_record_ms  
+- blume_stream_activities_ms  
+- blume_infrastructure  
+
+Each of these modules **is part of** the BLUME system.
+
+---
+
+## blume_wa (Web Application)
+
+The **blume_wa** module is decomposed into the following submodules:
+
+- auth  
+- marketing  
+- app  
+- player  
+- shared  
+
+Each submodule **is part of** blume_wa.
+
+- **auth** includes: login with email, login with Google, user registration, onboarding, password recovery  
+- **marketing** includes: public landing page  
+- **app** includes: enrolled channels listing, channel detail, public streams exploration, recordings catalog  
+- **player** includes: live stream playback, recording playback, live chat  
+- **shared** includes: session management and centralized API layer  
+
+---
+
+## blume_ma (Mobile Application)
+
+The **blume_ma** module is decomposed into:
+
+- auth  
+- app  
+- player  
+- shared  
+
+Each submodule **is part of** blume_ma.
+
+- **auth** includes: login, registration, onboarding, password recovery  
+- **app** includes: channel navigation and content exploration  
+- **player** includes: stream playback and live chat  
+- **shared** includes: persistent session management, demo mode, API layer  
+
+---
+
+## blume_business_logic_ms (Main Backend)
+
+The **blume_business_logic_ms** module is decomposed into:
+
+- authentication  
+- channels  
+- streams  
+- shared  
+- health  
+- database  
+
+Each submodule **is part of** blume_business_logic_ms.
+
+### Internal Layering (for authentication, channels, streams)
+
+Each of the modules **authentication**, **channels**, and **streams** is further decomposed into:
+
+- domain  
+- application  
+- infrastructure  
+
+Each layer **is part of** its corresponding module.
+
+---
+
+### authentication
+
+The **authentication** module includes:
+
+- **domain**: user, role, authentication provider, password reset token, password policies, domain contracts  
+- **application**: user registration, authentication (local and Google), session validation, password reset, onboarding  
+- **infrastructure**: HTTP controllers, persistence adapters, JWT handling, Firebase integration, password hashing, email notifications, cookie-based session handling  
+
+---
+
+### channels
+
+The **channels** module includes:
+
+- **domain**: channel entities and access rules  
+- **application**: enrolled channels retrieval, channel detail retrieval  
+- **infrastructure**: REST controllers and persistence  
+
+---
+
+### streams
+
+The **streams** module includes:
+
+- **domain**: class entities, stream status, visibility and access rules  
+- **application**: class listing, filtering and detail retrieval  
+- **infrastructure**: REST controllers and persistence  
+
+---
+
+### shared
+
+The **shared** module includes:
+
+- security configuration, JWT filters, global exception handling, shared DTOs  
+
+---
+
+### health
+
+The **health** module includes:
+
+- system health check endpoint  
+
+---
+
+### database
+
+The **database** module includes:
+
+- database migrations and schema versioning  
+
+---
+
+## blume_stream_ms (Streaming Engine)
+
+The **blume_stream_ms** module is decomposed into:
+
+- auth  
+- signaling  
+- media  
+- stats  
+- config  
+
+Each submodule **is part of** blume_stream_ms.
+
+- **auth** includes: stream authorization and stream key validation  
+- **signaling** includes: viewer session generation  
+- **media** includes: recording event handling  
+- **stats** includes: connected viewers metrics  
+- **config** includes: service configuration  
+
+---
+
+## blume_record_ms (Recording Service)
+
+The **blume_record_ms** module is decomposed into:
+
+- consumer  
+- processing  
+- catalog  
+
+Each submodule **is part of** blume_record_ms.
+
+- **consumer** includes: event consumption from messaging system  
+- **processing** includes: recording processing and storage  
+- **catalog** includes: metadata persistence and API exposure  
+
+---
+
+## blume_stream_activities_ms (Stream Activities)
+
+The **blume_stream_activities_ms** module is decomposed into:
+
+- chat  
+- auth  
+- database  
+
+Each submodule **is part of** blume_stream_activities_ms.
+
+- **chat** includes: message sending, receiving, and history  
+- **auth** includes: user validation  
+- **database** includes: chat persistence schema  
+
+---
+
+## blume_infrastructure (Infrastructure)
+
+The **blume_infrastructure** module is decomposed into:
+
+- gateway  
+- media_server  
+- messaging  
+- auth_external  
+- persistence  
+- deployment  
+
+Each submodule **is part of** blume_infrastructure.
+
+- **gateway** includes: request routing  
+- **media_server** includes: video ingestion and playback  
+- **messaging** includes: asynchronous processing queues  
+- **auth_external** includes: external authentication provider  
+- **persistence** includes: relational databases and object storage  
+- **deployment** includes: container orchestration and environment configuration  
+
+---
+
 ## Repositories
 
 [business-logic](https://github.com/Salon-1C/business-logic)
