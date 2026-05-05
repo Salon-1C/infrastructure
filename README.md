@@ -134,10 +134,10 @@ To run everything with a single `docker compose up`, clone all repositories unde
 ```bash
 mkdir -p 1C && cd 1C
 git clone https://github.com/Salon-1C/infrastructure.git
-git clone https://github.com/Salon-1C/arquisoft-front.git
-git clone https://github.com/Salon-1C/business-logic.git
-git clone https://github.com/Salon-1C/stream-engine.git
-git clone https://github.com/Salon-1C/record-service.git
+git clone https://github.com/Salon-1C/blume_wa.git
+git clone https://github.com/Salon-1C/blume_business_logic_ms.git
+git clone https://github.com/Salon-1C/blume_stream_ms.git
+git clone https://github.com/Salon-1C/blume_record_ms.git
 git clone https://github.com/Salon-1C/blume_ma.git
 ```
 
@@ -146,10 +146,10 @@ Expected folder layout:
 ```text
 1C/
 ├── infrastructure/
-├── arquisoft-front/
-├── business-logic/
-├── stream-engine/
-├── record-service/
+├── blume_wa/
+├── blume_business_logic_ms/
+├── blume_stream_ms/
+├── blume_record_ms/
 └── blume_ma/
 ```
 
