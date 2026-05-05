@@ -15,7 +15,6 @@ services:
     networks:
       - blume_net
 
-  # ── Database ──────────────────────────────────────────────────────────────────
   mysql:
     image: mysql:8.4
     restart: unless-stopped
@@ -34,24 +33,24 @@ services:
     networks:
       - blume_net
 
-  # recordings-mysql:
-  #   image: mysql:8.4
-  #   restart: unless-stopped
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: ${RECORD_DB_PASSWORD}
-  #     MYSQL_DATABASE: ${RECORD_DB_NAME}
-  #   volumes:
-  #     - recordings_mysql_data:/var/lib/mysql
-  #   healthcheck:
-  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${RECORD_DB_PASSWORD}"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - blume_net
+  postgres_activities:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${ACTIVITIES_DB_USER:-blume}
+      POSTGRES_PASSWORD: ${ACTIVITIES_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${ACTIVITIES_DB_NAME:-stream_activities}
+    volumes:
+      - postgres_activities_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ACTIVITIES_DB_USER:-blume} -d ${ACTIVITIES_DB_NAME:-stream_activities}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - blume_net
 
-  # ── Business Logic (Spring Boot) ─────────────────────────────────────────────
-  business-logic:
+  blume_business_logic_ms:
     build:
       context: ../blume_business_logic_ms/backend-core
     restart: unless-stopped
@@ -85,16 +84,24 @@ services:
     networks:
       - blume_net
 
-  # ── Stream Engine (Go control plane) ─────────────────────────────────────────
-  stream-engine:
-    build:
-      context: ../stream-engine
+  rabbitmq:
+    image: rabbitmq:3.13-management
     restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - blume_net
+
+  blume_stream_ms:
+    build:
+      context: ../blume_stream_ms
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_started
     environment:
       HTTP_LISTEN_ADDR: ":8080"
-      # STREAM_KEY is intentionally omitted so the auth hook accepts any
-      # /live/<key> path (multi-stream mode).
-      # MEDIAMTX_HTTP_URL must be the browser-reachable URL (not internal Docker).
       MEDIAMTX_HTTP_URL: "http://localhost:8889"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
@@ -107,24 +114,19 @@ services:
     networks:
       - blume_net
 
-  # ── MediaMTX (RTMP ingest + WebRTC/WHEP playback) ────────────────────────────
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     restart: unless-stopped
     ports:
-      - "1935:1935"   # RTMP (OBS publish)
-      - "8889:8889"   # WebRTC / WHEP (browser play)
+      - "1935:1935"
+      - "8889:8889"
     volumes:
-      - ../stream-engine/configs/mediamtx.compose.yml:/mediamtx.yml:ro
+      - ../blume_stream_ms/configs/mediamtx.compose.yml:/mediamtx.yml:ro
     depends_on:
-      - stream-engine
-      - rabbitmq
-  rabbitmq:
-    image: rabbitmq:3.13-management
-    restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+      blume_stream_ms:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
     networks:
       - blume_net
 
@@ -173,9 +175,9 @@ services:
     networks:
       - blume_net
 
-  record-service:
+  blume_record_ms:
     build:
-      context: ../record-service
+      context: ../blume_record_ms
     restart: unless-stopped
     depends_on:
       rabbitmq:
@@ -212,8 +214,46 @@ services:
     networks:
       - blume_net
 
-  # ── Frontend (Next.js) ───────────────────────────────────────────────────────
-  frontend:
+  blume_stream_activities_ms:
+    build:
+      context: ../blume_stream_activities_ms
+    restart: unless-stopped
+    depends_on:
+      postgres_activities:
+        condition: service_healthy
+    environment:
+      PHX_SERVER: "true"
+      MIX_ENV: prod
+      PORT: "4000"
+      PHX_HOST: localhost
+      SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
+      DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
+    networks:
+      - blume_net
+
+  blume_recomendations_ms:
+    build:
+      context: ../blume_recomendations_ms
+    restart: unless-stopped
+    depends_on:
+      blume_business_logic_ms:
+        condition: service_started
+      blume_stream_activities_ms:
+        condition: service_started
+    environment:
+      STREAMS_API_URL: http://blume_business_logic_ms:8082
+      ACTIVITIES_API_URL: http://blume_stream_activities_ms:4000
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost"]'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.recommendations.rule=PathPrefix(`/api/v1`)
+      - traefik.http.routers.recommendations.entrypoints=web
+      - traefik.http.routers.recommendations.priority=15
+      - traefik.http.services.recommendations.loadbalancer.server.port=8000
+    networks:
+      - blume_net
+
+  blume_wa:
     build:
       context: ../blume_wa
       args:
@@ -222,13 +262,20 @@ services:
         NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
     environment:
-      API_INTERNAL_URL: "http://business-logic:8082"
-      RECORDINGS_INTERNAL_URL: "http://record-service:8081"
+      API_INTERNAL_URL: "http://blume_business_logic_ms:8082"
+      RECORDINGS_INTERNAL_URL: "http://blume_record_ms:8081"
     restart: unless-stopped
     depends_on:
-      - business-logic
-      - stream-engine
-      - record-service
+      blume_business_logic_ms:
+        condition: service_started
+      blume_stream_ms:
+        condition: service_started
+      blume_record_ms:
+        condition: service_started
+      blume_recomendations_ms:
+        condition: service_started
+      blume_stream_activities_ms:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.http.routers.frontend.rule=PathPrefix(`/`)
@@ -240,6 +287,7 @@ services:
 
 volumes:
   mysql_data:
+  postgres_activities_data:
   recordings_mysql_data:
   minio_data:
 

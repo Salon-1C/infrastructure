@@ -4,7 +4,12 @@ http:
       rule: "Path(`/api/streams`) || PathPrefix(`/api/streams/`)"
       entryPoints: ["web"]
       priority: 35
-      service: frontend
+      service: blume_wa
+    recommendations:
+      rule: "PathPrefix(`/api/v1`)"
+      entryPoints: ["web"]
+      priority: 15
+      service: recommendations
     recordings:
       rule: "PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || PathPrefix(`/internal/streams`)"
       entryPoints: ["web"]
@@ -24,22 +29,26 @@ http:
       rule: "PathPrefix(`/`)"
       entryPoints: ["web"]
       priority: 1
-      service: frontend
+      service: blume_wa
 
   services:
-    frontend:
+    blume_wa:
       loadBalancer:
         servers:
-          - url: "http://frontend:3000"
+          - url: "http://blume_wa:3000"
     business:
       loadBalancer:
         servers:
-          - url: "http://business-logic:8082"
+          - url: "http://blume_business_logic_ms:8082"
     stream:
       loadBalancer:
         servers:
-          - url: "http://stream-engine:8080"
+          - url: "http://blume_stream_ms:8080"
     recordings:
       loadBalancer:
         servers:
-          - url: "http://record-service:8081"
+          - url: "http://blume_record_ms:8081"
+    recommendations:
+      loadBalancer:
+        servers:
+          - url: "http://blume_recomendations_ms:8000"
