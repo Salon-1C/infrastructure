@@ -218,6 +218,8 @@ services:
     build:
       context: ../blume_stream_activities_ms
     restart: unless-stopped
+    ports:
+      - "4000:4000"
     depends_on:
       postgres_activities:
         condition: service_healthy
@@ -226,6 +228,7 @@ services:
       MIX_ENV: prod
       PORT: "4000"
       PHX_HOST: localhost
+      JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
       DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
     networks:
@@ -260,6 +263,7 @@ services:
         NEXT_PUBLIC_API_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_URL: "http://localhost"
         NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
+        NEXT_PUBLIC_PHOENIX_URL: "http://localhost:4000"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
     environment:
       API_INTERNAL_URL: "http://blume_business_logic_ms:8082"
