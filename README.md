@@ -92,6 +92,7 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 | Minio|MinIO console | S3-compatible object storage.|
 | `Firebase` | Google Identity Platform | Provides Google OAuth. The frontend uses the Firebase JS SDK to obtain an ID token; `business-logic` verifies it using the Firebase Admin SDK (service account). |
 | `traefik` |Traefik (Docker)| Single local gateway for the frontend and APIs (conceptual parity with cloud deployment).|
+| `blume_ma` | Flutter (Dart) | Native mobile client (Android / iOS). Consumes the same REST API as the web frontend via Dio + persistent cookie session. Includes a demo mode that works without a running backend. |
 
 
 #### End-to-end functional flow
@@ -122,7 +123,8 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 ├── arquisoft-front/  # Next.js Frontend
 ├── business-logic/   # API Spring Boot (auth + business)
 ├── stream-engine/    # API Go (streaming control + MediaMTX hooks)
-└── record-service/   # Go service (recordings process and catalog)
+├── record-service/   # Go service (recordings process and catalog)
+└── blume_ma/         # Flutter mobile app (Android / iOS)
 ```
 
 ### Clone all repositories in one parent folder
@@ -136,6 +138,7 @@ git clone https://github.com/Salon-1C/arquisoft-front.git
 git clone https://github.com/Salon-1C/business-logic.git
 git clone https://github.com/Salon-1C/stream-engine.git
 git clone https://github.com/Salon-1C/record-service.git
+git clone https://github.com/Salon-1C/blume_ma.git
 ```
 
 Expected folder layout:
@@ -146,7 +149,8 @@ Expected folder layout:
 ├── arquisoft-front/
 ├── business-logic/
 ├── stream-engine/
-└── record-service/
+├── record-service/
+└── blume_ma/
 ```
 
 ### Main services and ports
@@ -253,3 +257,5 @@ The infrastructure folder includes a production deployment with equivalent compo
 [stream-engine](https://github.com/Salon-1C/stream-engine)
 
 [arquisoft-front](https://github.com/Salon-1C/arquisoft-front)
+
+[blume_ma](https://github.com/Salon-1C/blume_ma)
