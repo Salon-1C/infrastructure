@@ -31,7 +31,17 @@ Streaming and learning platform composed of microservices. It allows user authen
 
 ### Components and Connectors View
 
-![Diagrama C&C de la plataforma](./diagrams/diagram-cyc.png)
+> **Delivery 1 (initial):** The first version of the C&C view modeled only three runtime components — `blume_wa` (web frontend), `blume_business_logic_ms` (Spring Boot), and `blume_stream_ms` (Go stream engine) — connected by REST and HLS over a single API Gateway. Databases and the media server appeared as external elements with no intermediate layers.
+>
+> **Delivery 2 (current):** The updated view adds the four services incorporated in the second delivery: `blume_stream_activities_ms` (Phoenix/WebSocket for live chat), `blume_record_ms` (Go recording processor), `blume_recomendations_ms` (FastAPI), and `blume_ma` (Flutter mobile client). RabbitMQ is now modeled explicitly as an asynchronous connector between `blume_stream_ms`, `mediamtx`, and `blume_record_ms`. MinIO replaces the generic object-storage reference. The gateway (Traefik) is shown as a concrete component with its routing rules, and Firebase is typed as an external Auth service rather than a plain dependency.
+
+![Diagrama C&C de la plataforma](<./diagrams/DiagramsDelivery 1-CyC View.drawio.png>)
+
+### Deployment View
+
+> Shows the local Docker Compose deployment on a single node. All services run on the `blume_net` bridge network inside Docker. Traefik listens on port **80** as the sole public HTTP entry point and routes by path prefix to each backend container. Phoenix (`blume_stream_activities_ms`) is also reachable directly on port **4000** for WebSocket connections. Infrastructure components (MySQL ×2, PostgreSQL, RabbitMQ, MinIO, MediaMTX) are deployed as standard images alongside the application containers. A second logical node represents the Android device running the Flutter client.
+
+![Diagrama de despliegue local](<./diagrams/DiagramsDelivery 1-Despliegue-local.drawio.png>)
 
 ### Description of architectural styles used
 
