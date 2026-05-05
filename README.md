@@ -139,6 +139,9 @@ git clone https://github.com/Salon-1C/blume_business_logic_ms.git
 git clone https://github.com/Salon-1C/blume_stream_ms.git
 git clone https://github.com/Salon-1C/blume_record_ms.git
 git clone https://github.com/Salon-1C/blume_ma.git
+git clone https://github.com/Salon-1C/blume_recomendations_ms.git
+git clone https://github.com/Salon-1C/blume_stream_activities_ms.git
+
 ```
 
 Expected folder layout:
