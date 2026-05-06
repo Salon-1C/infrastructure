@@ -118,19 +118,21 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 
 #### Architectural elements
 
-| Component | Technology | Role |
-|---|---|---|
-| `blume_wa` | Next.js 16, TypeScript, React 19 | Rich web client. Serves all user-facing pages, manages session state via React Context, and consumes both backend services over HTTP. |
-| `blume_business_logic_ms` | Spring Boot 3.3.5, Java 21 | Central backend. Handles user authentication (local and Google/Firebase), session management via signed JWT cookies, password reset via SMTP, and all core business domain logic. |
-| `blume_stream_ms` | Go 1.22+ | Streaming orchestration server. Validates RTMP stream keys for MediaMTX, generates WHEP URLs for WebRTC-based playback, and tracks live viewer counts. |
-| `blume_record_ms` | Go Service |Recording processing; scans files, uploads to S3/MinIO, and saves metadata.|
-| `MySQL 8.4` | Relational Database | Primary data store. Holds users, roles, auth providers, password reset tokens, channels, streams, chat messages, viewer sessions, and analytics events. Managed via Flyway migrations (6 versioned scripts). |
-| `MediaMTX` | bluenviron/mediamtx (Docker) | Media server (RTMP ingest, WHEP/WebRTC playback, and recording generation). |
-| `Cloudflare R2` | Object Storage + CDN | Hosts the HLS media segments produced by MediaMTX and delivers them to browsers with CDN caching. |
-| Minio|MinIO console | S3-compatible object storage.|
-| `Firebase` | Google Identity Platform | Provides Google OAuth. The frontend uses the Firebase JS SDK to obtain an ID token; `blume_business_logic_ms` verifies it using the Firebase Admin SDK (service account). |
-| `traefik` |Traefik (Docker)| Single local gateway for the frontend and APIs (conceptual parity with cloud deployment).|
-| `blume_ma` | Flutter (Dart) | Native mobile client (Android / iOS). Consumes the same REST API as the web frontend via Dio + persistent cookie session. Includes a demo mode that works without a running backend. |
+| Component                    | Technology | Role |
+|------------------------------|---|---|
+| `blume_wa`                   | Next.js 16, TypeScript, React 19 | Rich web client. Serves all user-facing pages, manages session state via React Context, and consumes both backend services over HTTP. |
+| `blume_business_logic_ms`    | Spring Boot 3.3.5, Java 21 | Central backend. Handles user authentication (local and Google/Firebase), session management via signed JWT cookies, password reset via SMTP, and all core business domain logic. |
+| `blume_stream_ms`            | Go 1.22+ | Streaming orchestration server. Validates RTMP stream keys for MediaMTX, generates WHEP URLs for WebRTC-based playback, and tracks live viewer counts. |
+| `blume_record_ms`            |Go Service |Recording processing; scans files, uploads to S3/MinIO, and saves metadata.|
+| `MySQL 8.4`                  | Relational Database | Primary data store. Holds users, roles, auth providers, password reset tokens, channels, streams, chat messages, viewer sessions, and analytics events. Managed via Flyway migrations (6 versioned scripts). |
+| `MediaMTX`                   | bluenviron/mediamtx (Docker) | Media server (RTMP ingest, WHEP/WebRTC playback, and recording generation). |
+| `Cloudflare R2`              | Object Storage + CDN | Hosts the HLS media segments produced by MediaMTX and delivers them to browsers with CDN caching. |
+| Minio                        |MinIO console | S3-compatible object storage.|
+| `blume_stream_activities_ms` | Phoenix, Elixir | Chat interactions backend, handles real-time chat operations and broadcasting including messaages, polls and quizzes. |
+| `blume_recommendations_ms`   | TBD | Recommendations engine for personalized content suggestions. |
+| `Firebase`                   | Google Identity Platform | Provides Google OAuth. The frontend uses the Firebase JS SDK to obtain an ID token; `business-logic` verifies it using the Firebase Admin SDK (service account). |
+| `traefik`                    |Traefik (Docker)| Single local gateway for the frontend and APIs (conceptual parity with cloud deployment).|
+| `blume_ma`                   | Flutter (Dart) | Native mobile client (Android / iOS). Consumes the same REST API as the web frontend via Dio + persistent cookie session. Includes a demo mode that works without a running backend. |
 
 
 #### End-to-end functional flow
@@ -157,12 +159,14 @@ This structure applies per feature slice (`authentication/`, `channels/`, `activ
 
 ```text
 1C/
-├── infrastructure/               # Compose local, gateway, variables and execution documentation
-├── blume_wa/                     # Next.js Frontend
-├── blume_business_logic_ms/      # API Spring Boot (auth + business)
-├── blume_stream_ms/              # API Go (streaming control + MediaMTX hooks)
-├── blume_record_ms/              # Go service (recordings process and catalog)
-└── blume_ma/                     # Flutter mobile app (Android / iOS)
+├── infrastructure/              # Compose local, gateway, variables and execution documentation
+├── blume_wa/                    # Next.js Frontend
+├── blume_business_logic_ms/     # API Spring Boot (auth + business)
+├── blume_stream_ms/             # API Go (streaming control + MediaMTX hooks)
+├── blume_record_ms/             # Go service (recordings process and catalog)
+├── blume_stream_activities_ms/  # Phoenix/Elixir (chat interactions and real-time operations)
+├── blume_recommendations_ms/    # Recommendations engine
+└── blume_ma/                    # Flutter mobile app (Android / iOS)
 ```
 
 ### Clone all repositories in one parent folder
@@ -176,10 +180,9 @@ git clone https://github.com/Salon-1C/blume_wa.git
 git clone https://github.com/Salon-1C/blume_business_logic_ms.git
 git clone https://github.com/Salon-1C/blume_stream_ms.git
 git clone https://github.com/Salon-1C/blume_record_ms.git
-git clone https://github.com/Salon-1C/blume_ma.git
-git clone https://github.com/Salon-1C/blume_recomendations_ms.git
 git clone https://github.com/Salon-1C/blume_stream_activities_ms.git
-
+git clone https://github.com/Salon-1C/blume_recommendations_ms.git
+git clone https://github.com/Salon-1C/blume_ma.git
 ```
 
 Expected folder layout:
@@ -191,6 +194,8 @@ Expected folder layout:
 ├── blume_business_logic_ms/
 ├── blume_stream_ms/
 ├── blume_record_ms/
+├── blume_stream_activities_ms/
+├── blume_recommendations_ms/
 └── blume_ma/
 ```
 
@@ -508,12 +513,18 @@ Each submodule **is part of** blume_infrastructure.
 
 ## Repositories
 
-[blume_business_logic_ms](https://github.com/Salon-1C/blume_business_logic_ms)
-
 [infrastructure](https://github.com/Salon-1C/infrastructure)
+
+[blume_wa](https://github.com/Salon-1C/blume_wa)
+
+[blume_business_logic_ms](https://github.com/Salon-1C/blume_business_logic_ms)
 
 [blume_stream_ms](https://github.com/Salon-1C/blume_stream_ms)
 
-[blume_wa](https://github.com/Salon-1C/blume_wa)
+[blume_record_ms](https://github.com/Salon-1C/blume_record_ms)
+
+[blume_stream_activities_ms](https://github.com/Salon-1C/blume_stream_activities_ms)
+
+[blume_recommendations_ms](https://github.com/Salon-1C/blume_recommendations_ms)
 
 [blume_ma](https://github.com/Salon-1C/blume_ma)
