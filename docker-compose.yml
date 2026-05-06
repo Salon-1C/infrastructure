@@ -50,7 +50,7 @@ services:
     networks:
       - blume_net
 
-  blume_business_logic_ms:
+  blume-business-logic-ms:
     build:
       context: ../blume_business_logic_ms/backend-core
     restart: unless-stopped
@@ -240,12 +240,12 @@ services:
       context: ../blume_recomendations_ms
     restart: unless-stopped
     depends_on:
-      blume_business_logic_ms:
+      blume-business-logic-ms:
         condition: service_started
       blume_stream_activities_ms:
         condition: service_started
     environment:
-      STREAMS_API_URL: http://blume_business_logic_ms:8082
+      STREAMS_API_URL: http://blume-business-logic-ms:8082
       ACTIVITIES_API_URL: http://blume_stream_activities_ms:4000
       ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost"]'
     labels:
@@ -267,11 +267,11 @@ services:
         NEXT_PUBLIC_PHOENIX_URL: "http://localhost:4000"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
     environment:
-      API_INTERNAL_URL: "http://blume_business_logic_ms:8082"
+      API_INTERNAL_URL: "http://blume-business-logic-ms:8082"
       RECORDINGS_INTERNAL_URL: "http://blume_record_ms:8081"
     restart: unless-stopped
     depends_on:
-      blume_business_logic_ms:
+      blume-business-logic-ms:
         condition: service_started
       blume_stream_ms:
         condition: service_started

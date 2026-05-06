@@ -17,7 +17,7 @@ for d in "$TARGET_PATH"/*/; do
   # Checks if the directory is a git repository
   if [ -d "$d/.git" ]; then
       (
-        cd "$d"
+        cd "$d" || exit
         REPO_NAME=$(basename "$d")
 
         BRANCH=$(git branch --show-current)

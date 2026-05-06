@@ -39,7 +39,7 @@ http:
     business:
       loadBalancer:
         servers:
-          - url: "http://blume_business_logic_ms:8082"
+          - url: "http://blume-business-logic-ms:8082"
     stream:
       loadBalancer:
         servers:
