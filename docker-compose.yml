@@ -65,7 +65,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-86400}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost,http://${SERVER_IP:-localhost}:3000,http://${SERVER_IP:-localhost}}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
       HLS_SIGNING_SECRET: ${HLS_SIGNING_SECRET:-unused}
       HLS_URL_TTL_SECONDS: ${HLS_URL_TTL_SECONDS:-3600}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
@@ -102,7 +102,7 @@ services:
         condition: service_started
     environment:
       HTTP_LISTEN_ADDR: ":8080"
-      MEDIAMTX_HTTP_URL: "http://${SERVER_IP:-localhost}:8889"
+      MEDIAMTX_HTTP_URL: "http://localhost:8889"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
       JWT_SECRET: ${JWT_SECRET}
@@ -205,7 +205,7 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       S3_USE_PATH_STYLE: "true"
-      S3_PUBLIC_BASE_URL: http://${SERVER_IP:-localhost}:9000/${MINIO_BUCKET}
+      S3_PUBLIC_BASE_URL: http://localhost:9000/${MINIO_BUCKET}
     labels:
       - traefik.enable=true
       - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || Path(`/health`)
@@ -228,7 +228,7 @@ services:
       PHX_SERVER: "true"
       MIX_ENV: prod
       PORT: "4000"
-      PHX_HOST: ${SERVER_IP:-localhost}
+      PHX_HOST: localhost
       JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
       DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
@@ -247,7 +247,7 @@ services:
     environment:
       STREAMS_API_URL: http://blume-business-logic-ms:8082
       ACTIVITIES_API_URL: http://blume_stream_activities_ms:4000
-      ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost","http://${SERVER_IP:-localhost}:3000","http://${SERVER_IP:-localhost}"]'
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost"]'
     labels:
       - traefik.enable=true
       - traefik.http.routers.recommendations.rule=PathPrefix(`/api/v1`)
@@ -261,10 +261,10 @@ services:
     build:
       context: ../blume_wa
       args:
-        NEXT_PUBLIC_API_URL: "http://${SERVER_IP:-localhost}"
-        NEXT_PUBLIC_STREAM_URL: "http://${SERVER_IP:-localhost}"
-        NEXT_PUBLIC_RECORDINGS_URL: "http://${SERVER_IP:-localhost}"
-        NEXT_PUBLIC_PHOENIX_URL: "http://${SERVER_IP:-localhost}:4000"
+        NEXT_PUBLIC_API_URL: "http://localhost"
+        NEXT_PUBLIC_STREAM_URL: "http://localhost"
+        NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
+        NEXT_PUBLIC_PHOENIX_URL: "http://localhost:4000"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
     environment:
       API_INTERNAL_URL: "http://blume-business-logic-ms:8082"
