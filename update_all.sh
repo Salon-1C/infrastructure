@@ -9,7 +9,7 @@ echo -e "All repos in [$TARGET_PATH] will be updated.."
 echo "Is this folder correct? (y/n)"
 read -r RESPONSE
 if [[ "$RESPONSE" != "y" ]]; then
-  echo "Aborting.."
+  echo "Aborting script.."
   exit 1
   fi
 # Loops through all directories in the parent path
