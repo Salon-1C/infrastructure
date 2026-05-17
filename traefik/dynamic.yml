@@ -30,6 +30,22 @@ http:
       entryPoints: ["web"]
       priority: 1
       service: blume_wa
+    minio_storage:
+      rule: "PathPrefix(`/storage`)"
+      entryPoints: ["web"]
+      priority: 50
+      middlewares: ["strip-storage-prefix"]
+      service: minio
+    internal_streams:
+      rule: "PathPrefix(`/internal/streams`)"
+      entryPoints: ["web"]
+      priority: 45
+      service: stream
+
+  middlewares:
+    strip-storage-prefix:
+      stripPrefix:
+        prefixes: ["/storage"]
 
   services:
     blume_wa:
@@ -52,3 +68,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://blume_recomendations_ms:8000"
+    minio:
+      loadBalancer:
+        servers:
+          - url: "http://minio:9000"

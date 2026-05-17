@@ -1,20 +1,21 @@
 variable "project" {
-  description = "Project name prefix"
-  type        = string
+  type = string
 }
 
 variable "github_org" {
-  description = "GitHub organization name (e.g. Salon-1C)"
-  type        = string
+  type = string
 }
 
 variable "github_repos" {
-  description = "GitHub repository names that are allowed to assume the deploy role"
+  description = "GitHub repository names allowed to assume the deploy role"
   type        = list(string)
-  default     = ["business-logic", "stream-engine"]
+}
+
+variable "ecr_repository_names" {
+  description = "ECR repository names GitHub Actions may push to"
+  type        = list(string)
 }
 
 variable "recordings_bucket_arn" {
-  description = "S3 bucket ARN for recordings objects"
-  type        = string
+  type = string
 }

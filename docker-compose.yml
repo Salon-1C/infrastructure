@@ -1,3 +1,10 @@
+# Segmentación de red (atributo de calidad: Seguridad)
+#   blume_edge  — DMZ: único punto HTTP público (Traefik) + frontend
+#   blume_app   — microservicios de aplicación
+#   blume_data  — datos e infraestructura (BD, colas, almacenamiento)
+#
+# Ver: docs/atributo-calidad-seguridad-segmentacion-red.md
+
 services:
   traefik:
     image: traefik:v3.1
@@ -13,7 +20,8 @@ services:
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
-      - blume_net
+      - blume_edge
+      - blume_app
 
   mysql:
     image: mysql:8.4
@@ -21,8 +29,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -31,7 +37,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - blume_net
+      - blume_data
 
   postgres_activities:
     image: postgres:16-alpine
@@ -48,7 +54,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - blume_net
+      - blume_data
 
   blume_business_logic_ms:
     build:
@@ -82,16 +88,14 @@ services:
       - traefik.http.routers.business.priority=10
       - traefik.http.services.business.loadbalancer.server.port=8082
     networks:
-      - blume_net
+      - blume_app
+      - blume_data
 
   rabbitmq:
     image: rabbitmq:3.13-management
     restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     networks:
-      - blume_net
+      - blume_data
 
   blume_stream_ms:
     build:
@@ -102,7 +106,7 @@ services:
         condition: service_started
     environment:
       HTTP_LISTEN_ADDR: ":8080"
-      MEDIAMTX_HTTP_URL: "http://localhost:8889"
+      MEDIAMTX_HTTP_URL: "http://mediamtx:8889"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
     labels:
@@ -112,7 +116,8 @@ services:
       - traefik.http.routers.stream.priority=30
       - traefik.http.services.stream.loadbalancer.server.port=8080
     networks:
-      - blume_net
+      - blume_app
+      - blume_data
 
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
@@ -128,7 +133,7 @@ services:
       rabbitmq:
         condition: service_started
     networks:
-      - blume_net
+      - blume_app
 
   recordings-mysql:
     image: mysql:8.4
@@ -144,7 +149,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - blume_net
+      - blume_data
 
   minio:
     image: minio/minio:latest
@@ -153,13 +158,11 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
       - minio_data:/data
     networks:
-      - blume_net
+      - blume_data
+      - blume_app
 
   minio-init:
     image: minio/mc:latest
@@ -173,7 +176,7 @@ services:
       exit 0;
       "
     networks:
-      - blume_net
+      - blume_data
 
   blume_record_ms:
     build:
@@ -204,7 +207,7 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       S3_USE_PATH_STYLE: "true"
-      S3_PUBLIC_BASE_URL: http://localhost:9000/${MINIO_BUCKET}
+      S3_PUBLIC_BASE_URL: http://localhost/storage/${MINIO_BUCKET}
     labels:
       - traefik.enable=true
       - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || Path(`/health`)
@@ -212,7 +215,8 @@ services:
       - traefik.http.routers.recordings.priority=40
       - traefik.http.services.recordings.loadbalancer.server.port=8081
     networks:
-      - blume_net
+      - blume_app
+      - blume_data
 
   blume_stream_activities_ms:
     build:
@@ -232,7 +236,8 @@ services:
       SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
       DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
     networks:
-      - blume_net
+      - blume_app
+      - blume_data
 
   blume_recomendations_ms:
     build:
@@ -254,7 +259,7 @@ services:
       - traefik.http.routers.recommendations.priority=15
       - traefik.http.services.recommendations.loadbalancer.server.port=8000
     networks:
-      - blume_net
+      - blume_app
 
   blume_wa:
     build:
@@ -287,7 +292,8 @@ services:
       - traefik.http.routers.frontend.priority=1
       - traefik.http.services.frontend.loadbalancer.server.port=3000
     networks:
-      - blume_net
+      - blume_edge
+      - blume_app
 
 volumes:
   mysql_data:
@@ -296,5 +302,14 @@ volumes:
   minio_data:
 
 networks:
-  blume_net:
+  blume_edge:
     driver: bridge
+    name: blume_edge
+  blume_app:
+    driver: bridge
+    name: blume_app
+    internal: false
+  blume_data:
+    driver: bridge
+    name: blume_data
+    internal: true

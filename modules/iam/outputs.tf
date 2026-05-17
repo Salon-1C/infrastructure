@@ -9,16 +9,25 @@ output "ecs_task_execution_role_arn" {
 }
 
 output "business_logic_task_role_arn" {
-  description = "ARN of the ECS task role for business-logic"
-  value       = aws_iam_role.business_logic_task.arn
+  value = aws_iam_role.business_logic_task.arn
 }
 
 output "stream_engine_task_role_arn" {
-  description = "ARN of the ECS task role for stream-engine"
-  value       = aws_iam_role.stream_engine_task.arn
+  value = aws_iam_role.stream_engine_task.arn
 }
 
 output "record_service_task_role_arn" {
-  description = "ARN of the ECS task role for record-service"
-  value       = aws_iam_role.record_service_task.arn
+  value = aws_iam_role.record_service_task.arn
+}
+
+output "activities_task_role_arn" {
+  value = aws_iam_role.activities_task.arn
+}
+
+output "recommendations_task_role_arn" {
+  value = aws_iam_role.recommendations_task.arn
+}
+
+output "frontend_task_role_arn" {
+  value = aws_iam_role.frontend_task.arn
 }

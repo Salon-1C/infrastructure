@@ -1,0 +1,75 @@
+# Reusable workflow: build image, push to ECR, redeploy ECS service.
+# Call from component repos in the same GitHub org.
+name: Reusable — ECR push and ECS redeploy
+
+on:
+  workflow_call:
+    inputs:
+      ecr_repository:
+        required: true
+        type: string
+      ecs_service:
+        required: true
+        type: string
+      docker_context:
+        required: true
+        type: string
+      dockerfile:
+        required: false
+        type: string
+        default: Dockerfile
+      build_args:
+        required: false
+        type: string
+        default: ""
+    secrets:
+      AWS_ROLE_ARN:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  ECS_CLUSTER: blume
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - name: Build, tag and push
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          IMAGE_BASE="$REGISTRY/${{ inputs.ecr_repository }}"
+          BUILD_ARGS=""
+          if [ -n "${{ inputs.build_args }}" ]; then
+            BUILD_ARGS="${{ inputs.build_args }}"
+          fi
+          docker build -f "${{ inputs.dockerfile }}" $BUILD_ARGS \
+            -t "${IMAGE_BASE}:${IMAGE_TAG}" \
+            -t "${IMAGE_BASE}:latest" \
+            "${{ inputs.docker_context }}"
+          docker push "${IMAGE_BASE}:${IMAGE_TAG}"
+          docker push "${IMAGE_BASE}:latest"
+
+      - name: Force ECS redeployment
+        run: |
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "${{ inputs.ecs_service }}" \
+            --force-new-deployment \
+            --no-cli-pager

@@ -1,0 +1,46 @@
+# MediaMTX config for ECS sidecar (go-server on localhost:8080)
+logLevel: info
+
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8080/auth/mediamtx
+
+rtmp: yes
+rtmpAddress: :1935
+
+rtsp: yes
+rtspAddress: :8554
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigins:
+  - "*"
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+hls: no
+
+pathDefaults:
+  record: no
+
+paths:
+  "~^live/[a-zA-Z0-9]+$":
+    record: yes
+    recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S
+    recordFormat: fmp4
+    recordPartDuration: 5s
+    runOnReady: >-
+      ffmpeg
+      -rtsp_transport tcp
+      -i rtsp://127.0.0.1:8554/${MTX_PATH}
+      -c:v copy
+      -c:a libopus -b:a 128k -ar 48000 -ac 2
+      -f rtsp rtsp://127.0.0.1:8554/${MTX_PATH}_rtc
+    runOnReadyRestart: yes
+    runOnRecordSegmentComplete: >-
+      sh -c "b64=$(base64 -w0 \"${MTX_SEGMENT_PATH}\" 2>/dev/null || true); [ -n \"$b64\" ] && wget -qO- --header='Content-Type: application/json' --post-data \"{\\\"streamPath\\\":\\\"${MTX_PATH}\\\",\\\"segmentPath\\\":\\\"${MTX_SEGMENT_PATH}\\\",\\\"contentBase64\\\":\\\"$b64\\\"}\" http://127.0.0.1:8080/internal/recordings/segment-complete >/dev/null 2>&1 || true"
+
+  "~^live/[a-zA-Z0-9]+_rtc$":
+    record: no
+
+  all:
+    record: no

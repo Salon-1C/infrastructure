@@ -39,7 +39,7 @@ Streaming and learning platform composed of microservices. It allows user authen
 
 ### Deployment View
 
-> Shows the local Docker Compose deployment on a single node. All services run on the `blume_net` bridge network inside Docker. Traefik listens on port **80** as the sole public HTTP entry point and routes by path prefix to each backend container. Phoenix (`blume_stream_activities_ms`) is also reachable directly on port **4000** for WebSocket connections. Infrastructure components (MySQL ×2, PostgreSQL, RabbitMQ, MinIO, MediaMTX) are deployed as standard images alongside the application containers. A second logical node represents the Android device running the Flutter client.
+> Shows the local Docker Compose deployment on a single node with **network segmentation** for the security quality attribute: `blume_edge` (DMZ / Traefik + frontend), `blume_app` (microservices), and `blume_data` (databases, queues, object storage — internal network, no host ports). Traefik listens on port **80** as the sole public HTTP entry point and routes by path prefix to each backend container. Phoenix (`blume_stream_activities_ms`) is also reachable directly on port **4000** for WebSocket connections. See [`docs/atributo-calidad-seguridad-segmentacion-red.md`](docs/atributo-calidad-seguridad-segmentacion-red.md) and `tests/security/network-segmentation/run-test.sh`. A second logical node represents the Android device running the Flutter client.
 
 ![Diagrama de despliegue local](<./diagrams/DiagramsDelivery 1-Despliegue-local.drawio.png>)
 

@@ -1,17 +1,14 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
-# ── GitHub OIDC Provider ───────────────────────────────────────────────────────
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 
   client_id_list = ["sts.amazonaws.com"]
 
-  # GitHub Actions OIDC thumbprint (stable)
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-# ── GitHub Actions deploy role (assumed by both app repos) ────────────────────
 data "aws_iam_policy_document" "github_assume" {
   statement {
     effect  = "Allow"
@@ -65,9 +62,8 @@ data "aws_iam_policy_document" "github_deploy_policy" {
       "ecr:CompleteLayerUpload",
     ]
     resources = [
-      "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/blume-backend",
-      "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/stream-engine",
-      "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/record-service",
+      for name in var.ecr_repository_names :
+      "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/${name}"
     ]
   }
 
@@ -93,7 +89,6 @@ resource "aws_iam_role_policy_attachment" "github_deploy" {
   policy_arn = aws_iam_policy.github_deploy.arn
 }
 
-# ── ECS Task Execution Role (shared by all tasks) ─────────────────────────────
 resource "aws_iam_role" "ecs_task_execution" {
   name = "${var.project}-ecs-task-execution"
 
@@ -114,7 +109,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_managed" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Allow execution role to pull secrets from Secrets Manager (for env injection)
 data "aws_iam_policy_document" "ecs_execution_secrets" {
   statement {
     sid    = "SecretsManagerRead"
@@ -124,6 +118,7 @@ data "aws_iam_policy_document" "ecs_execution_secrets" {
     ]
     resources = [
       "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project}/*",
+      "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project}-*/*",
     ]
   }
 }
@@ -138,7 +133,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_secrets" {
   policy_arn = aws_iam_policy.ecs_execution_secrets.arn
 }
 
-# ── ECS Task Role for business-logic (runtime permissions) ────────────────────
 resource "aws_iam_role" "business_logic_task" {
   name = "${var.project}-business-logic-task"
 
@@ -154,7 +148,6 @@ resource "aws_iam_role" "business_logic_task" {
   tags = { Project = var.project }
 }
 
-# ── ECS Task Role for stream-engine ───────────────────────────────────────────
 resource "aws_iam_role" "stream_engine_task" {
   name = "${var.project}-stream-engine-task"
 
@@ -170,9 +163,53 @@ resource "aws_iam_role" "stream_engine_task" {
   tags = { Project = var.project }
 }
 
-# ── ECS Task Role for record-service ──────────────────────────────────────────
 resource "aws_iam_role" "record_service_task" {
   name = "${var.project}-record-service-task"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Project = var.project }
+}
+
+resource "aws_iam_role" "activities_task" {
+  name = "${var.project}-activities-task"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Project = var.project }
+}
+
+resource "aws_iam_role" "recommendations_task" {
+  name = "${var.project}-recommendations-task"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Project = var.project }
+}
+
+resource "aws_iam_role" "frontend_task" {
+  name = "${var.project}-frontend-task"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

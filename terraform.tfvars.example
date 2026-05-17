@@ -1,46 +1,39 @@
-# Copy this file to terraform.tfvars and fill in the values.
-# NEVER commit terraform.tfvars — it contains secrets.
+# Copy to terraform.tfvars — never commit secrets.
 
 aws_region  = "us-east-2"
 project     = "blume"
 environment = "production"
+github_org  = "Salon-1C"
 
-# GitHub organization that owns both app repos
-github_org = "Salon-1C"
+# Public URL after deploy (ALB or custom domain). Used for Next.js NEXT_PUBLIC_* at image build time.
+public_app_url = "https://YOUR_ALB_OR_DOMAIN"
+allowed_origin = "https://YOUR_ALB_OR_DOMAIN"
 
-# ── Database ──────────────────────────────────────────────────────────────────
-db_name           = "blume"
-db_instance_class = "db.t3.micro"
+db_name                      = "blume"
+db_instance_class            = "db.t3.micro"
 recordings_db_name           = "recordings"
 recordings_db_instance_class = "db.t3.micro"
-recordings_bucket_name       = "blume-recordings-prod-unique-suffix"
+activities_db_name           = "stream_activities"
+activities_db_user           = "blume"
+activities_db_instance_class = "db.t3.micro"
+recordings_bucket_name       = "blume-recordings-prod-UNIQUE_SUFFIX"
 
-# ── Application ───────────────────────────────────────────────────────────────
-# The URL your frontend is hosted at (used for CORS)
-allowed_origin = "https://app.example.com"
-
-# Generate a strong random value: openssl rand -hex 32
 jwt_secret         = "CHANGE_ME"
 hls_signing_secret = "CHANGE_ME"
+stream_key         = "CHANGE_ME"
+activities_secret_key_base = "CHANGE_ME_RUN_mix_phx_gen_secret"
 
-# The RTMP stream key OBS will use when publishing
-stream_key = "CHANGE_ME"
-
-# Full contents of your Firebase service account JSON file.
-# Paste the JSON as a single-line string or use a file() reference.
 firebase_service_account_json = <<EOT
-{
-  "type": "service_account",
-  "project_id": "YOUR_PROJECT_ID"
-}
+{"type":"service_account","project_id":"YOUR_PROJECT_ID"}
 EOT
 
-# ── Mail ──────────────────────────────────────────────────────────────────────
 mail_host     = "smtp.gmail.com"
 mail_port     = 587
 mail_username = "noreply@example.com"
 
-# ── ECS Capacity ──────────────────────────────────────────────────────────────
-business_logic_desired_count = 1
-stream_engine_desired_count  = 1
-record_service_desired_count = 1
+business_logic_desired_count  = 1
+stream_engine_desired_count   = 1
+record_service_desired_count  = 1
+activities_desired_count      = 1
+recommendations_desired_count = 1
+frontend_desired_count        = 1

@@ -21,16 +21,24 @@ resource "aws_db_subnet_group" "this" {
   tags       = { Project = var.project }
 }
 
+locals {
+  engine         = var.engine
+  engine_version = coalesce(var.engine_version, var.engine == "postgres" ? "16" : "8.0")
+  port           = coalesce(var.port, var.engine == "postgres" ? 5432 : 3306)
+  identifier     = var.engine == "postgres" ? "${var.project}-postgres" : "${var.project}-mysql"
+}
+
 resource "aws_db_instance" "this" {
-  identifier        = "${var.project}-mysql"
-  engine            = "mysql"
-  engine_version    = "8.0"
+  identifier        = local.identifier
+  engine            = local.engine
+  engine_version    = local.engine_version
   instance_class    = var.db_instance_class
   allocated_storage = 20
   storage_type      = "gp3"
+  port              = local.port
 
   db_name  = var.db_name
-  username = "admin"
+  username = var.username
   password = random_password.db.result
 
   db_subnet_group_name   = aws_db_subnet_group.this.name

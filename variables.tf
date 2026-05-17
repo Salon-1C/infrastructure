@@ -17,91 +17,106 @@ variable "environment" {
 }
 
 variable "github_org" {
-  description = "GitHub organization name (must match the org that owns business-logic and stream-engine repos)"
+  description = "GitHub organization that owns the Blume repositories"
   type        = string
 }
 
 # ── Database ──────────────────────────────────────────────────────────────────
 variable "db_name" {
-  description = "MySQL database name"
-  type        = string
-  default     = "blume"
+  type    = string
+  default = "blume"
 }
 
 variable "db_instance_class" {
-  description = "RDS instance class"
-  type        = string
-  default     = "db.t3.micro"
+  type    = string
+  default = "db.t3.micro"
 }
 
 variable "recordings_db_name" {
-  description = "MySQL database name for recordings microservice"
-  type        = string
-  default     = "recordings"
+  type    = string
+  default = "recordings"
 }
 
 variable "recordings_db_instance_class" {
-  description = "RDS instance class for recordings database"
-  type        = string
-  default     = "db.t3.micro"
+  type    = string
+  default = "db.t3.micro"
+}
+
+variable "activities_db_name" {
+  type    = string
+  default = "stream_activities"
+}
+
+variable "activities_db_user" {
+  type    = string
+  default = "blume"
+}
+
+variable "activities_db_instance_class" {
+  type    = string
+  default = "db.t3.micro"
 }
 
 variable "recordings_bucket_name" {
-  description = "S3 bucket name for recorded files"
+  description = "Globally unique S3 bucket name for recorded videos"
   type        = string
 }
 
 # ── Application ───────────────────────────────────────────────────────────────
+variable "public_app_url" {
+  description = "Public HTTPS URL of the platform (e.g. https://app.example.com). Used for Next.js build args and Phoenix PHX_HOST."
+  type        = string
+}
+
 variable "allowed_origin" {
-  description = "CORS allowed origin for the Spring Boot API (e.g. https://app.example.com)"
+  description = "CORS allowed origin for APIs"
   type        = string
   default     = "*"
 }
 
 variable "jwt_secret" {
-  description = "JWT signing secret for business-logic"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "hls_signing_secret" {
-  description = "HLS URL signing secret for business-logic"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "firebase_service_account_json" {
-  description = "Full contents of the Firebase service account JSON"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "stream_key" {
-  description = "RTMP stream key used by OBS / MediaMTX auth"
+  type      = string
+  sensitive = true
+}
+
+variable "activities_secret_key_base" {
+  description = "Phoenix SECRET_KEY_BASE (mix phx.gen.secret)"
   type        = string
   sensitive   = true
 }
 
 # ── Mail ──────────────────────────────────────────────────────────────────────
 variable "mail_host" {
-  description = "SMTP host"
-  type        = string
-  default     = "smtp.gmail.com"
+  type    = string
+  default = "smtp.gmail.com"
 }
 
 variable "mail_port" {
-  description = "SMTP port"
-  type        = number
-  default     = 587
+  type    = number
+  default = 587
 }
 
 variable "mail_username" {
-  description = "SMTP username"
-  type        = string
-  default     = ""
+  type    = string
+  default = ""
 }
 
-# ── ECS Capacity (override for scaling) ──────────────────────────────────────
+# ── ECS capacity ──────────────────────────────────────────────────────────────
 variable "business_logic_desired_count" {
   type    = number
   default = 1
@@ -113,6 +128,21 @@ variable "stream_engine_desired_count" {
 }
 
 variable "record_service_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "activities_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "recommendations_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "frontend_desired_count" {
   type    = number
   default = 1
 }

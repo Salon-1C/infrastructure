@@ -88,11 +88,19 @@ resource "aws_route_table_association" "private" {
 
 # ── Security Groups ───────────────────────────────────────────────────────────
 
-# ALB: accepts HTTPS from the internet (API GW VPC Link uses HTTPS internally)
+# ALB: public HTTP + VPC Link from API Gateway
 resource "aws_security_group" "alb" {
   name        = "${var.project}-alb-sg"
-  description = "Internal ALB accessed via API Gateway VPC Link"
+  description = "Application load balancer for Blume HTTP/WebSocket traffic"
   vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   ingress {
     description = "HTTP from VPC (API GW VPC Link)"
@@ -120,12 +128,23 @@ resource "aws_security_group" "ecs" {
   description = "ECS Fargate tasks"
   vpc_id      = aws_vpc.this.id
 
+  dynamic "ingress" {
+    for_each = [3000, 4000, 8000, 8080, 8081, 8082]
+    content {
+      description     = "App port ${ingress.value} from ALB"
+      from_port       = ingress.value
+      to_port         = ingress.value
+      protocol        = "tcp"
+      security_groups = [aws_security_group.alb.id]
+    }
+  }
+
   ingress {
-    description     = "HTTP from ALB"
-    from_port       = 8080
-    to_port         = 8080
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+    description = "RabbitMQ AMQP between ECS tasks"
+    from_port   = 5672
+    to_port     = 5672
+    protocol    = "tcp"
+    self        = true
   }
 
   ingress {
@@ -162,16 +181,24 @@ resource "aws_security_group" "ecs" {
   tags = { Name = "${var.project}-ecs-sg" }
 }
 
-# RDS: accepts MySQL only from ECS tasks
+# RDS: MySQL and PostgreSQL from ECS tasks
 resource "aws_security_group" "rds" {
   name        = "${var.project}-rds-sg"
-  description = "RDS MySQL"
+  description = "RDS databases"
   vpc_id      = aws_vpc.this.id
 
   ingress {
     description     = "MySQL from ECS"
     from_port       = 3306
     to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs.id]
+  }
+
+  ingress {
+    description     = "PostgreSQL from ECS"
+    from_port       = 5432
+    to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.ecs.id]
   }

@@ -1,9 +1,7 @@
 variable "project" {
-  description = "Project name prefix"
-  type        = string
+  type = string
 }
 
-# ── Networking ────────────────────────────────────────────────────────────────
 variable "vpc_id" {
   type = string
 }
@@ -24,7 +22,6 @@ variable "ecs_sg_id" {
   type = string
 }
 
-# ── IAM ───────────────────────────────────────────────────────────────────────
 variable "ecs_task_execution_role_arn" {
   type = string
 }
@@ -41,23 +38,46 @@ variable "record_service_task_role_arn" {
   type = string
 }
 
-# ── ECR images ────────────────────────────────────────────────────────────────
+variable "activities_task_role_arn" {
+  type = string
+}
+
+variable "recommendations_task_role_arn" {
+  type = string
+}
+
+variable "frontend_task_role_arn" {
+  type = string
+}
+
 variable "blume_backend_image_url" {
-  description = "ECR repository URL for blume-backend (without tag)"
-  type        = string
+  type = string
 }
 
 variable "stream_engine_image_url" {
-  description = "ECR repository URL for stream-engine (without tag)"
-  type        = string
+  type = string
 }
 
 variable "record_service_image_url" {
-  description = "ECR repository URL for record-service (without tag)"
-  type        = string
+  type = string
 }
 
-# ── RDS ───────────────────────────────────────────────────────────────────────
+variable "blume_wa_image_url" {
+  type = string
+}
+
+variable "activities_ms_image_url" {
+  type = string
+}
+
+variable "recommendations_ms_image_url" {
+  type = string
+}
+
+variable "mediamtx_image_url" {
+  type = string
+}
+
 variable "db_host" {
   type = string
 }
@@ -68,6 +88,24 @@ variable "db_name" {
 }
 
 variable "db_password_secret_arn" {
+  type = string
+}
+
+variable "activities_db_host" {
+  type = string
+}
+
+variable "activities_db_name" {
+  type    = string
+  default = "stream_activities"
+}
+
+variable "activities_db_user" {
+  type    = string
+  default = "blume"
+}
+
+variable "activities_db_password_secret_arn" {
   type = string
 }
 
@@ -88,32 +126,31 @@ variable "recordings_bucket_name" {
   type = string
 }
 
-# ── App secrets ───────────────────────────────────────────────────────────────
 variable "jwt_secret" {
-  description = "JWT signing secret"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "hls_signing_secret" {
-  description = "HLS URL signing secret"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "firebase_service_account_json" {
-  description = "Firebase service account JSON (full contents)"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
 variable "stream_key" {
-  description = "RTMP stream key"
-  type        = string
-  sensitive   = true
+  type      = string
+  sensitive = true
 }
 
-# ── Mail ──────────────────────────────────────────────────────────────────────
+variable "activities_secret_key_base" {
+  type      = string
+  sensitive = true
+}
+
 variable "mail_host" {
   type    = string
   default = "smtp.gmail.com"
@@ -130,12 +167,45 @@ variable "mail_username" {
 }
 
 variable "allowed_origin" {
-  description = "CORS allowed origin for the API"
-  type        = string
-  default     = "*"
+  type    = string
+  default = "*"
 }
 
-# ── Capacity ──────────────────────────────────────────────────────────────────
+variable "public_app_url" {
+  description = "Public base URL for the web app (Next.js NEXT_PUBLIC_* build args)"
+  type        = string
+}
+
+variable "business_logic_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "stream_engine_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "record_service_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "activities_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "recommendations_desired_count" {
+  type    = number
+  default = 1
+}
+
+variable "frontend_desired_count" {
+  type    = number
+  default = 1
+}
+
 variable "business_logic_cpu" {
   type    = number
   default = 512
@@ -146,24 +216,14 @@ variable "business_logic_memory" {
   default = 1024
 }
 
-variable "business_logic_desired_count" {
-  type    = number
-  default = 1
-}
-
 variable "stream_engine_cpu" {
-  type    = number
-  default = 512
-}
-
-variable "stream_engine_memory" {
   type    = number
   default = 1024
 }
 
-variable "stream_engine_desired_count" {
+variable "stream_engine_memory" {
   type    = number
-  default = 1
+  default = 2048
 }
 
 variable "record_service_cpu" {
@@ -176,7 +236,32 @@ variable "record_service_memory" {
   default = 1024
 }
 
-variable "record_service_desired_count" {
+variable "activities_cpu" {
   type    = number
-  default = 1
+  default = 512
+}
+
+variable "activities_memory" {
+  type    = number
+  default = 1024
+}
+
+variable "recommendations_cpu" {
+  type    = number
+  default = 256
+}
+
+variable "recommendations_memory" {
+  type    = number
+  default = 512
+}
+
+variable "frontend_cpu" {
+  type    = number
+  default = 512
+}
+
+variable "frontend_memory" {
+  type    = number
+  default = 1024
 }
