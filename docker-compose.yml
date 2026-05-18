@@ -13,7 +13,8 @@ services:
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
-      - blume_net
+      - blume_public_net
+      - blume_backend_net
 
   mysql:
     image: mysql:8.4
@@ -21,8 +22,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -31,7 +30,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - blume_net
+      - blume_db_net
 
   postgres_activities:
     image: postgres:16-alpine
@@ -48,7 +47,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - blume_net
+      - blume_db_net
 
   blume-business-logic-ms:
     build:
@@ -82,16 +81,14 @@ services:
       - traefik.http.routers.business.priority=10
       - traefik.http.services.business.loadbalancer.server.port=8082
     networks:
-      - blume_net
+      - blume_backend_net
+      - blume_db_net
 
   rabbitmq:
     image: rabbitmq:3.13-management
     restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     networks:
-      - blume_net
+      - blume_db_net
 
   blume_stream_ms:
     build:
@@ -113,7 +110,8 @@ services:
       - traefik.http.routers.stream.priority=30
       - traefik.http.services.stream.loadbalancer.server.port=8080
     networks:
-      - blume_net
+      - blume_backend_net
+      - blume_db_net
 
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
@@ -129,7 +127,8 @@ services:
       rabbitmq:
         condition: service_started
     networks:
-      - blume_net
+      - blume_public_net
+      - blume_backend_net
 
   recordings-mysql:
     image: mysql:8.4
@@ -145,7 +144,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - blume_net
+      - blume_db_net
 
   minio:
     image: minio/minio:latest
@@ -154,13 +153,17 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
       - minio_data:/data
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.minio.rule=PathPrefix(`/recordings`)
+      - traefik.http.routers.minio.entrypoints=web
+      - traefik.http.routers.minio.priority=20
+      - traefik.http.services.minio.loadbalancer.server.port=9000
     networks:
-      - blume_net
+      - blume_backend_net
+      - blume_db_net
 
   minio-init:
     image: minio/mc:latest
@@ -174,7 +177,7 @@ services:
       exit 0;
       "
     networks:
-      - blume_net
+      - blume_db_net
 
   blume_record_ms:
     build:
@@ -205,7 +208,7 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       S3_USE_PATH_STYLE: "true"
-      S3_PUBLIC_BASE_URL: http://localhost:9000/${MINIO_BUCKET}
+      S3_PUBLIC_BASE_URL: http://localhost/${MINIO_BUCKET}
     labels:
       - traefik.enable=true
       - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || Path(`/health`)
@@ -213,14 +216,13 @@ services:
       - traefik.http.routers.recordings.priority=40
       - traefik.http.services.recordings.loadbalancer.server.port=8081
     networks:
-      - blume_net
+      - blume_backend_net
+      - blume_db_net
 
   blume_stream_activities_ms:
     build:
       context: ../blume_stream_activities_ms
     restart: unless-stopped
-    ports:
-      - "4000:4000"
     depends_on:
       postgres_activities:
         condition: service_healthy
@@ -232,8 +234,15 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
       DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.activities.rule=PathPrefix(`/socket`) || PathPrefix(`/activities`)
+      - traefik.http.routers.activities.entrypoints=web
+      - traefik.http.routers.activities.priority=25
+      - traefik.http.services.activities.loadbalancer.server.port=4000
     networks:
-      - blume_net
+      - blume_backend_net
+      - blume_db_net
 
   blume_recomendations_ms:
     build:
@@ -255,7 +264,7 @@ services:
       - traefik.http.routers.recommendations.priority=15
       - traefik.http.services.recommendations.loadbalancer.server.port=8000
     networks:
-      - blume_net
+      - blume_backend_net
 
   blume_wa:
     build:
@@ -264,7 +273,7 @@ services:
         NEXT_PUBLIC_API_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_URL: "http://localhost"
         NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
-        NEXT_PUBLIC_PHOENIX_URL: "http://localhost:4000"
+        NEXT_PUBLIC_PHOENIX_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
     environment:
       API_INTERNAL_URL: "http://blume-business-logic-ms:8082"
@@ -288,7 +297,7 @@ services:
       - traefik.http.routers.frontend.priority=1
       - traefik.http.services.frontend.loadbalancer.server.port=3000
     networks:
-      - blume_net
+      - blume_backend_net
 
 volumes:
   mysql_data:
@@ -297,5 +306,10 @@ volumes:
   minio_data:
 
 networks:
-  blume_net:
+  blume_public_net:
     driver: bridge
+  blume_backend_net:
+    driver: bridge
+  blume_db_net:
+    driver: bridge
+    internal: true
