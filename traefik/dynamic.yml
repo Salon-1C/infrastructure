@@ -25,6 +25,11 @@ http:
       entryPoints: ["web"]
       priority: 30
       service: stream
+    activities:
+      rule: "PathPrefix(`/socket`) || PathPrefix(`/activities`)"
+      entryPoints: ["web"]
+      priority: 25
+      service: activities
     business:
       rule: "PathPrefix(`/api`)"
       entryPoints: ["web"]
@@ -61,3 +66,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://blume_recomendations_ms:8000"
+    activities:
+      loadBalancer:
+        servers:
+          - url: "http://blume_stream_activities_ms:4000"
