@@ -6,10 +6,9 @@ services:
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
       - --entrypoints.web.address=:80
-      - --api.insecure=true
+      - --api.insecure=false
     ports:
       - "80:80"
-      - "8088:8080"
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
@@ -21,8 +20,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -87,9 +84,6 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management
     restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     networks:
       - blume_net
 
@@ -120,7 +114,6 @@ services:
     restart: unless-stopped
     ports:
       - "1935:1935"
-      - "8889:8889"
     volumes:
       - ../blume_stream_ms/configs/mediamtx.compose.yml:/mediamtx.yml:ro
     depends_on:
@@ -154,9 +147,6 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     volumes:
       - minio_data:/data
     networks:
