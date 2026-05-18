@@ -1,10 +1,5 @@
 http:
   routers:
-    activities:
-      rule: "PathPrefix(`/socket`)"
-      entryPoints: ["web"]
-      priority: 50
-      service: activities
     streamsNextApi:
       rule: "Path(`/api/streams`) || PathPrefix(`/api/streams/`)"
       entryPoints: ["web"]
@@ -42,10 +37,6 @@ http:
       service: blume_wa
 
   services:
-    activities:
-      loadBalancer:
-        servers:
-          - url: "http://blume_stream_activities_ms:4000"
     blume_wa:
       loadBalancer:
         servers:
