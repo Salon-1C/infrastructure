@@ -7,16 +7,15 @@
 
 services:
   traefik:
-    image: traefik:v3.1
+    image: traefik:v3.3
     restart: unless-stopped
     command:
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
       - --entrypoints.web.address=:80
-      - --api.insecure=true
+      - --api.insecure=false
     ports:
       - "80:80"
-      - "8088:8080"
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
@@ -56,7 +55,7 @@ services:
     networks:
       - blume_data
 
-  blume_business_logic_ms:
+  blume-business-logic-ms:
     build:
       context: ../blume_business_logic_ms/backend-core
     restart: unless-stopped
@@ -71,7 +70,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-86400}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
       HLS_SIGNING_SECRET: ${HLS_SIGNING_SECRET:-unused}
       HLS_URL_TTL_SECONDS: ${HLS_URL_TTL_SECONDS:-3600}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
@@ -109,6 +108,7 @@ services:
       MEDIAMTX_HTTP_URL: "http://mediamtx:8889"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
+      JWT_SECRET: ${JWT_SECRET}
     labels:
       - traefik.enable=true
       - traefik.http.routers.stream.rule=Path(`/api/viewer-session`) || PathPrefix(`/api/viewers`) || Path(`/api/stats`) || Path(`/auth/mediamtx`)
@@ -124,7 +124,6 @@ services:
     restart: unless-stopped
     ports:
       - "1935:1935"
-      - "8889:8889"
     volumes:
       - ../blume_stream_ms/configs/mediamtx.compose.yml:/mediamtx.yml:ro
     depends_on:
@@ -210,7 +209,7 @@ services:
       S3_PUBLIC_BASE_URL: http://localhost/storage/${MINIO_BUCKET}
     labels:
       - traefik.enable=true
-      - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || Path(`/health`)
+      - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || PathPrefix(`/internal/streams`)
       - traefik.http.routers.recordings.entrypoints=web
       - traefik.http.routers.recordings.priority=40
       - traefik.http.services.recordings.loadbalancer.server.port=8081
@@ -222,8 +221,6 @@ services:
     build:
       context: ../blume_stream_activities_ms
     restart: unless-stopped
-    ports:
-      - "4000:4000"
     depends_on:
       postgres_activities:
         condition: service_healthy
@@ -232,9 +229,16 @@ services:
       MIX_ENV: prod
       PORT: "4000"
       PHX_HOST: localhost
+      ELIXIR_ERL_OPTIONS: "+fnu"
       JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
       DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.activities.rule=PathPrefix(`/socket`)
+      - traefik.http.routers.activities.entrypoints=web
+      - traefik.http.routers.activities.priority=50
+      - traefik.http.services.activities.loadbalancer.server.port=4000
     networks:
       - blume_app
       - blume_data
@@ -244,12 +248,12 @@ services:
       context: ../blume_recomendations_ms
     restart: unless-stopped
     depends_on:
-      blume_business_logic_ms:
+      blume-business-logic-ms:
         condition: service_started
       blume_stream_activities_ms:
         condition: service_started
     environment:
-      STREAMS_API_URL: http://blume_business_logic_ms:8082
+      STREAMS_API_URL: http://blume-business-logic-ms:8082
       ACTIVITIES_API_URL: http://blume_stream_activities_ms:4000
       ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost"]'
     labels:
@@ -268,14 +272,17 @@ services:
         NEXT_PUBLIC_API_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_URL: "http://localhost"
         NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
-        NEXT_PUBLIC_PHOENIX_URL: "http://localhost:4000"
+        NEXT_PUBLIC_PHOENIX_URL: "http://localhost"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
     environment:
-      API_INTERNAL_URL: "http://blume_business_logic_ms:8082"
-      RECORDINGS_INTERNAL_URL: "http://blume_record_ms:8081"
+      API_INTERNAL_URL: "http://traefik"
+      RECORDINGS_INTERNAL_URL: "http://traefik"
     restart: unless-stopped
     depends_on:
-      blume_business_logic_ms:
+      blume-business-logic-ms:
         condition: service_started
       blume_stream_ms:
         condition: service_started
@@ -290,7 +297,12 @@ services:
       - traefik.http.routers.frontend.rule=PathPrefix(`/`)
       - traefik.http.routers.frontend.entrypoints=web
       - traefik.http.routers.frontend.priority=1
-      - traefik.http.services.frontend.loadbalancer.server.port=3000
+      - traefik.http.routers.frontend.service=blume_wa
+      - traefik.http.routers.streamsNextApi.rule=Path(`/api/streams`) || PathPrefix(`/api/streams/`)
+      - traefik.http.routers.streamsNextApi.entrypoints=web
+      - traefik.http.routers.streamsNextApi.priority=35
+      - traefik.http.routers.streamsNextApi.service=blume_wa
+      - traefik.http.services.blume_wa.loadbalancer.server.port=3000
     networks:
       - blume_edge
       - blume_app

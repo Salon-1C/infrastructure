@@ -1,5 +1,10 @@
 http:
   routers:
+    activities:
+      rule: "PathPrefix(`/socket`)"
+      entryPoints: ["web"]
+      priority: 50
+      service: activities
     streamsNextApi:
       rule: "Path(`/api/streams`) || PathPrefix(`/api/streams/`)"
       entryPoints: ["web"]
@@ -48,6 +53,10 @@ http:
         prefixes: ["/storage"]
 
   services:
+    activities:
+      loadBalancer:
+        servers:
+          - url: "http://blume_stream_activities_ms:4000"
     blume_wa:
       loadBalancer:
         servers:
@@ -55,7 +64,7 @@ http:
     business:
       loadBalancer:
         servers:
-          - url: "http://blume_business_logic_ms:8082"
+          - url: "http://blume-business-logic-ms:8082"
     stream:
       loadBalancer:
         servers:
