@@ -20,6 +20,11 @@ http:
       entryPoints: ["web"]
       priority: 30
       service: stream
+    mediamtx:
+      rule: "PathPrefix(`/live`) || PathPrefix(`/rtmp`) || PathPrefix(`/whep`)"
+      entryPoints: ["web"]
+      priority: 50
+      service: mediamtx
     activities:
       rule: "PathPrefix(`/socket`) || PathPrefix(`/activities`)"
       entryPoints: ["web"]
@@ -61,3 +66,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://blume_stream_activities_ms:4000"
+
+    mediamtx:
+      loadBalancer:
+        servers:
+          - url: "http://mediamtx:8889"
+
+

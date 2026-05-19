@@ -106,6 +106,8 @@ services:
     environment:
       HTTP_LISTEN_ADDR: ":8080"
       MEDIAMTX_HTTP_URL: "http://mediamtx:8889"
+      # Public URL returned to browsers (Traefik will proxy /live paths to mediamtx)
+      MEDIAMTX_PUBLIC_URL: "http://localhost"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
       JWT_SECRET: ${JWT_SECRET}
