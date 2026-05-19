@@ -14,5 +14,5 @@ terraform.tfvars
 .idea/
 *.swp
 
-security/
+security/ca/
 *.pem
