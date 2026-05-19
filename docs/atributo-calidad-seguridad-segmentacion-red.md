@@ -64,7 +64,7 @@ El objetivo no es “más contenedores”, sino **reducir la superficie de ataqu
 1. **Puertos de datos eliminados del host** — Ya no se publican `3306`, `5672`, `15672`, `9000`, `9001`. El acceso a datos pasa por la red interna `blume_data`.
 2. **`blume_data` marcada `internal: true`** — Sin salida enrutable hacia Internet desde esa red; aísla la capa de persistencia.
 3. **Único HTTP de aplicación en el host** — Traefik (`80`) y excepción documentada Phoenix WebSocket (`4000`), más puertos de streaming RTMP/WebRTC en MediaMTX.
-4. **MinIO detrás del gateway** — URLs públicas de grabaciones usan `http://localhost/storage/<bucket>/...` en lugar de exponer el puerto `9000`.
+4. **MinIO detrás del gateway** — URLs públicas de grabaciones usan `http://localhost/recordings/<bucket>/...` en lugar de exponer el puerto `9000`.
 5. **Corrección de descubrimiento** — `MEDIAMTX_HTTP_URL` apunta a `http://mediamtx:8889` (antes `localhost`, inválido entre contenedores).
 
 ---
