@@ -1,45 +1,76 @@
 http:
+  middlewares:
+    hsts:
+      headers:
+        stsSeconds: 15768000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        forceSTSHeader: true
+
   routers:
+    nextAuthClearSession:
+      rule: "Path(`/api/auth/clear-session`)"
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
+      priority: 20
+      service: blume_wa
+      tls: {}
     streamsNextApi:
       rule: "Path(`/api/streams`) || PathPrefix(`/api/streams/`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 35
       service: blume_wa
+      tls: {}
     recommendations:
       rule: "PathPrefix(`/api/v1`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 15
       service: recommendations
+      tls: {}
     recordings:
       rule: "PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || PathPrefix(`/internal/streams`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 40
       service: recordings
+      tls: {}
     stream:
       rule: "Path(`/api/viewer-session`) || PathPrefix(`/api/viewers`) || Path(`/api/stats`) || Path(`/auth/mediamtx`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 30
       service: stream
+      tls: {}
     mediamtx:
       rule: "PathPrefix(`/live`) || PathPrefix(`/rtmp`) || PathPrefix(`/whep`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 50
       service: mediamtx
+      tls: {}
     activities:
       rule: "PathPrefix(`/socket`) || PathPrefix(`/activities`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 25
       service: activities
+      tls: {}
     business:
       rule: "PathPrefix(`/api`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 10
       service: business
+      tls: {}
     frontend:
       rule: "PathPrefix(`/`)"
-      entryPoints: ["web"]
+      entryPoints: ["websecure"]
+      middlewares: ["hsts"]
       priority: 1
       service: blume_wa
+      tls: {}
 
   services:
     blume_wa:
@@ -66,10 +97,19 @@ http:
       loadBalancer:
         servers:
           - url: "http://blume_stream_activities_ms:4000"
-
     mediamtx:
       loadBalancer:
         servers:
           - url: "http://mediamtx:8889"
 
-
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/blume-gateway.crt
+      keyFile: /etc/traefik/certs/blume-gateway.key
+  options:
+    default:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256

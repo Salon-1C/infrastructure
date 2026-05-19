@@ -13,11 +13,16 @@ services:
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
       - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
       - --api.insecure=false
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./security/ca:/etc/traefik/certs:ro
     networks:
       - blume_edge
       - blume_app
@@ -70,7 +75,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-86400}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost}
       HLS_SIGNING_SECRET: ${HLS_SIGNING_SECRET:-unused}
       HLS_URL_TTL_SECONDS: ${HLS_URL_TTL_SECONDS:-3600}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
@@ -107,7 +112,7 @@ services:
       HTTP_LISTEN_ADDR: ":8080"
       MEDIAMTX_HTTP_URL: "http://mediamtx:8889"
       # Public URL returned to browsers (Traefik will proxy /live paths to mediamtx)
-      MEDIAMTX_PUBLIC_URL: "http://localhost"
+      MEDIAMTX_PUBLIC_URL: "https://localhost"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       RABBITMQ_QUEUE: "recordings.ready"
       JWT_SECRET: ${JWT_SECRET}
@@ -215,7 +220,7 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       S3_USE_PATH_STYLE: "true"
-      S3_PUBLIC_BASE_URL: http://localhost/recordings/${MINIO_BUCKET}
+      S3_PUBLIC_BASE_URL: https://localhost/recordings/${MINIO_BUCKET}
     labels:
       - traefik.enable=true
       - traefik.http.routers.recordings.rule=PathPrefix(`/api/recordings`) || PathPrefix(`/internal/recordings`) || PathPrefix(`/internal/streams`)
@@ -264,7 +269,7 @@ services:
     environment:
       STREAMS_API_URL: http://blume-business-logic-ms:8082
       ACTIVITIES_API_URL: http://blume_stream_activities_ms:4000
-      ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost"]'
+      ALLOWED_ORIGINS: '["https://localhost"]'
     labels:
       - traefik.enable=true
       - traefik.http.routers.recommendations.rule=PathPrefix(`/api/v1`)
@@ -278,17 +283,20 @@ services:
     build:
       context: ../blume_wa
       args:
-        NEXT_PUBLIC_API_URL: "http://localhost"
-        NEXT_PUBLIC_STREAM_URL: "http://localhost"
-        NEXT_PUBLIC_RECORDINGS_URL: "http://localhost"
-        NEXT_PUBLIC_PHOENIX_URL: "http://localhost"
+        NEXT_PUBLIC_API_URL: "https://localhost"
+        NEXT_PUBLIC_STREAM_URL: "https://localhost"
+        NEXT_PUBLIC_RECORDINGS_URL: "https://localhost"
+        NEXT_PUBLIC_PHOENIX_URL: "https://localhost"
         NEXT_PUBLIC_STREAM_KEY: ${STREAM_KEY}
         NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
         NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
         NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
     environment:
-      API_INTERNAL_URL: "http://traefik"
-      RECORDINGS_INTERNAL_URL: "http://traefik"
+      API_INTERNAL_URL: "https://traefik"
+      RECORDINGS_INTERNAL_URL: "https://traefik"
+      NODE_EXTRA_CA_CERTS: "/etc/ssl/certs/blume-internal-ca.crt"
+    volumes:
+      - ./security/ca/blume-internal-ca.crt:/etc/ssl/certs/blume-internal-ca.crt:ro
     restart: unless-stopped
     depends_on:
       blume-business-logic-ms:
