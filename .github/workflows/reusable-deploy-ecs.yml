@@ -32,7 +32,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-2
-  ECS_CLUSTER: blume
+  ECS_CLUSTER: blume-cluster
 
 jobs:
   deploy:
