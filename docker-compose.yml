@@ -63,6 +63,7 @@ services:
   blume-business-logic-ms:
     build:
       context: ../blume_business_logic_ms/backend-core
+      dockerfile: ../Dockerfile
     restart: unless-stopped
     depends_on:
       mysql:
