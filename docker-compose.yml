@@ -323,7 +323,6 @@ services:
       - traefik.http.services.blume_wa.loadbalancer.server.port=3000
     networks:
       - blume_edge
-      - blume_app
 
 volumes:
   mysql_data:
