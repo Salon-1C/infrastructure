@@ -102,7 +102,7 @@ echo ""
 echo "--- Escenario 4: punto de entrada HTTP solo en DMZ ---"
 assert_allowed "$EDGE_NET" traefik 80 \
   "DMZ → Traefik:80 permitido (único HTTP público del stack)"
-assert_blocked "$EDGE_NET" blume_business_logic_ms 8082 \
+assert_blocked "$EDGE_NET" blume-business-logic-ms 8082 \
   "DMZ → business-logic directo bloqueado (solo vía Traefik)"
 
 echo ""

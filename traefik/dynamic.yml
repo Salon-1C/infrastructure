@@ -1,10 +1,5 @@
 http:
   routers:
-    activities:
-      rule: "PathPrefix(`/socket`)"
-      entryPoints: ["web"]
-      priority: 50
-      service: activities
     streamsNextApi:
       rule: "Path(`/api/streams`) || PathPrefix(`/api/streams/`)"
       entryPoints: ["web"]
@@ -25,6 +20,11 @@ http:
       entryPoints: ["web"]
       priority: 30
       service: stream
+    activities:
+      rule: "PathPrefix(`/socket`) || PathPrefix(`/activities`)"
+      entryPoints: ["web"]
+      priority: 25
+      service: activities
     business:
       rule: "PathPrefix(`/api`)"
       entryPoints: ["web"]
@@ -35,28 +35,8 @@ http:
       entryPoints: ["web"]
       priority: 1
       service: blume_wa
-    minio_storage:
-      rule: "PathPrefix(`/storage`)"
-      entryPoints: ["web"]
-      priority: 50
-      middlewares: ["strip-storage-prefix"]
-      service: minio
-    internal_streams:
-      rule: "PathPrefix(`/internal/streams`)"
-      entryPoints: ["web"]
-      priority: 45
-      service: stream
-
-  middlewares:
-    strip-storage-prefix:
-      stripPrefix:
-        prefixes: ["/storage"]
 
   services:
-    activities:
-      loadBalancer:
-        servers:
-          - url: "http://blume_stream_activities_ms:4000"
     blume_wa:
       loadBalancer:
         servers:
@@ -77,7 +57,7 @@ http:
       loadBalancer:
         servers:
           - url: "http://blume_recomendations_ms:8000"
-    minio:
+    activities:
       loadBalancer:
         servers:
-          - url: "http://minio:9000"
+          - url: "http://blume_stream_activities_ms:4000"
