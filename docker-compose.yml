@@ -65,10 +65,24 @@ services:
       context: ../blume_business_logic_ms/backend-core
       dockerfile: ../Dockerfile
     restart: unless-stopped
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 600M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
     depends_on:
       mysql:
         condition: service_healthy
     environment:
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: ${DB_NAME}
@@ -92,6 +106,7 @@ services:
       - traefik.http.routers.business.entrypoints=web
       - traefik.http.routers.business.priority=10
       - traefik.http.services.business.loadbalancer.server.port=8082
+      - traefik.http.services.business.loadbalancer.sticky.cookie=false
     networks:
       - blume_app
       - blume_data
