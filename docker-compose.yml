@@ -65,6 +65,8 @@ services:
       context: ../blume_business_logic_ms/backend-core
       dockerfile: ../Dockerfile
     restart: unless-stopped
+    deploy:
+      replicas: 3
     depends_on:
       mysql:
         condition: service_healthy
