@@ -63,7 +63,7 @@ Streaming and learning platform composed of microservices. It allows user authen
 
 > Illustrates the structural breakdown of the Blume ecosystem using a strict "is-part-of" relationship: each module contains its submodules, and submodules contain their elements — no communication or runtime flow is represented. At the top level the platform divides into seven modules: `webapp`, `mobileapp`, `business_logic_ms`, `stream_ms`, `record_ms`, `stream_activities_ms`, and `infrastructure`. Each decomposes further — notably `business_logic_ms` contains `authentication`, `channels`, and `streams`, each of which in turn contains `domain`, `application`, and `infrastructure` sublayers. Functions are expressed as actions: authenticate user with email/Google, register user, validate stream key, process recording, send and receive messages. The `infrastructure` module contains gateway (Traefik), media server (MediaMTX), messaging (RabbitMQ), external auth (Firebase), and persistence (MySQL, MinIO).
 
-![Decomposition View](./diagrams/DiagramsDelivery%201-Decomposition%20View.drawio.png)
+![Decomposition View](./diagrams/DiagramsDelivery%201-Decomposition%20View.drawio-V2.png.drawio.png)
 
 
 ### Description of architectural styles and patterns
