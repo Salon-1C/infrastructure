@@ -40,7 +40,7 @@ done
 echo ""
 echo "  [2.2] Traefik admin dashboard must be disabled"
 admin_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 \
-    http://localhost:8080/api/rawdata 2>/dev/null || echo "000")
+    http://localhost:8080/api/rawdata 2>/dev/null; true)
 check "Traefik admin API inaccessible (:8080)" "000" "$admin_code"
 
 echo ""
