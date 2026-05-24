@@ -32,7 +32,7 @@ Blume is a streaming and learning platform composed of microservices. It allows 
 ### Component-and-Connector (C&C) Structure
 - **View:**
 
-![DiagramsDelivery #1-C&C View.drawio](diagrams/cyc.jpeg)
+![DiagramsDelivery #1-C&C View.drawio](diagrams/cyc.png)
 #### Description of architectural elements and relations
 
 | Component                              | Type                | Description                                                                                                        | Relationships (origin → destiny · connector)                                                                                                                                                                                          |
