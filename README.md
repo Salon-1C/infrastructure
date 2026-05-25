@@ -1,8 +1,8 @@
 # Prototype 3
 ## Team
 **Name:** 1C
-
 **Team Members:**
+
 | Full Name | GitHub Profile |
 |---|---|
 | Andrés Felipe Alarcón Pulido | [andrefalar](https://github.com/orgs/Salon-1C/people/andrefalar) |
@@ -20,7 +20,7 @@
 
 **Logo:**
 
-![image](diagrams/logo.png)
+<img src="diagrams/logo.png" alt="image" width="30%">
 
 ### Description
 
@@ -33,6 +33,7 @@ Blume is a streaming and learning platform composed of microservices. It allows 
 - **View:**
 
 ![DiagramsDelivery #1-C&C View.drawio](diagrams/cyc.png)
+
 #### Description of architectural elements and relations
 
 | Component                              | Type                | Description                                                                                                        | Relationships (origin → destiny · connector)                                                                                                                                                                                          |
@@ -246,7 +247,12 @@ For this quality attribute we used 4 different patterns to overcome 4 different 
 
 ##### Scenario
   - **Source:** A user enrolled as a student in a course that uses the Blume platform.
+  
   - **Stimulus:** They wish to modify the grades of the course in which they are enrolled. In this example, student Ana García Morales failed the 2nd Midterm of Computer Networks.
+  
+  - **Artifact:** The HTTP connectors between clients and *Traefik*,
+specifically the session cookie (`blume_session`) transmitted on
+every authenticated request.
 
   ![secure_channel_1](diagrams/secure_1.jpeg)
 
@@ -354,8 +360,14 @@ These instruct the system that when a connection is attempted on an HTTP port (p
 ---
 ##### Scenario
 - **Source:** An external attacker or automated scanner attempting to map the internal architecture of the Blume platform.
+
 - **Stimulus:** The attacker scans the host for open ports and attempts to communicate directly with internal microservice endpoints — for example, the Spring Boot business logic service on port 8082, the Go stream engine on port 8080, the Elixir/Phoenix activities service on port 4000, or the record service on port 8081. Alternatively, the attacker tries to access the Traefik administration dashboard to extract the internal routing table.
+
+- **Artifact:** The *Traefik* API Gateway and the internal Docker
+network that exposes microservice ports exclusively within `blume_app`.
+
 - **Environment:** The system is running under normal conditions. The host exposes only the following ports: 80 (HTTP, immediately redirected to HTTPS), 443 (HTTPS via Traefik), 1935 (RTMP for OBS streaming), and 8889 (WebRTC/WHEP for MediaMTX). All internal microservice ports are bound exclusively to Docker internal networks.
+
 
   The attacker runs a port scan and attempts direct connections:
   ```bash
@@ -395,7 +407,11 @@ These instruct the system that when a connection is attempted on an HTTP port (p
 
 - **Attack:** Port scanning and direct connection to backend service ports; extraction of the internal routing topology via the Traefik admin API; crafting raw HTTP requests aimed at bypassing gateway-level controls (authentication middleware, path validation) by contacting backend services directly.
 
-- **Weakness:** Without a reverse proxy, each microservice would need to be independently exposed on the host network, multiplying the attack surface and eliminating any centralized enforcement point. An attacker who discovers a backend port can communicate with that service as if they were the gateway.
+- **Weakness:** Each microservice binds to its own port and handles
+incoming connections directly at the application layer, creating as many
+potential entry points as there are services. An attacker who discovers
+a backend port can communicate with that service as if they were the
+gateway.
 
 - **Vulnerability:** If internal service ports were published to the host, an attacker could bypass Traefik entirely and send requests directly to Spring Boot (:8082), Go (:8080), or Phoenix (:4000) — potentially bypassing the JWT validation middleware and TLS enforcement that are applied at the application layer, not at the transport layer.
 
@@ -495,10 +511,14 @@ Traefik sits on both `blume_edge` (reachable from the host) and `blume_app` (rea
 ---
 An architectural security pattern that divides a network infrastructure into multiple isolated logical subnets, applying strict access policies between them to contain potential breaches and prevent unauthorized lateral movement. The primary advantage of this pattern is the significant reduction of the system's attack surface by enforcing the principle of least privilege at the network level. In Blume, this is implemented by segregating the container architecture into three distinct Docker networks: `blume_edge` (acting as a DMZ for perimeter traffic via Traefik), `blume_app` (a private network for application microservices), and `blume_data` (an internal network configured with `internal: true`). This ensures that infrastructure components like databases (`MySQL`, `PostgreSQL`), object storage (`MinIO`), and message brokers (`RabbitMQ`) have no host-level port exposure and can exclusively receive traffic from authorized microservices attached to their segment.
 ##### Scenario
-- **Source:** 	
+- **Source:**     
 Bad external actor or compromised process in the edge zone (blume _edge: Traefik, frontend), that tries to reach resources in interal layers without authorizaton. Includes: Attacker in the host's network, container in DMZ after explotation, or automatic port scanning.
-- **Stimulus:** 	
+
+- **Stimulus:**     
 Direct network access attempt to data and message services (MySQL :3306, PostgreSQL :5432, RabbitMQ :5672, MinIO :9000) without going through the HTTP gateway (Traefik) or the authorized app logic. Examples: nc mysql 3306, scanning of ports in the host, JDBC/AMQP connection from a container only on blume_edge.
+
+- **Artifact:** The `blume_data` Docker network and the data-layer
+services attached to it (MySQL, PostgreSQL, RabbitMQ, MinIO).
 
 - **Environment:** 
 Local deployment with Docker Compose in a node (three networks: blume_edge, blume_app, blume_data with interal:true). Conceptual parity with production in AWS (public/private subnets, Security Groups ALB → ECS → RDS). The system is in normal operation (deployed stack, users can use HTTP in :80).
@@ -516,10 +536,14 @@ The system denies unauthorized TCP conections between zones: the DMZ and the app
 
 * **Threat:**
 Unauthorized access to sensitive data and lateral movement from a lower-trust component (frontend/DMZ) toward critical infrastructure (credentials in DB, messages in RabbitMQ, recordings in MinIO). Objectives: theft of user/channel data, manipulation of recording queues, denial of service on persistence layers.
-* **Attack:** 	
+* **Attack:**     
 (1) Scanning and direct connection to DB/queue/storage ports exposed on the host or within a shared flat network. (2) Pivoting from a compromised edge container toward MySQL/PostgreSQL using default or leaked credentials. (3) Bypassing the API Gateway by calling microservices or databases via internal IP/port without application-layer authentication.
-* **Weakness:** 	
-Deployment architecture with a single network plane (`blume_net`): all containers share the same logical Docker L2/L3 segment; there is no separation between DMZ / application / data. This allows any compromise in a service to reach any other open port via DNS name (`mysql`, `rabbitmq`).
+* **Weakness:**     
+The deployment architecture has a single network plane
+(`blume_net`): all containers share the same logical Docker L2/L3 segment,
+placing frontend, application, and data-layer services as peers on the same
+network. This allows any compromise in a service to reach any other open
+port via DNS name (`mysql`, `rabbitmq`).
 * **Vulnerability:**
 Exposure of infrastructure ports to the host (3306, 5672, 15672, 9000, 9001) and lack of isolation between Docker networks: a process on the host or in an edge container can open a TCP session against MySQL/RabbitMQ/MinIO without passing through application-layer controls (JWT, business authorization).
 * **Risk:**
@@ -637,7 +661,13 @@ any application-layer authentication.
 
 - **Stimulus:** They attempt to start a live stream on MediaMTX (an action reserved for professors), or try to connect to the real-time chat by impersonating another user.
 
+- **Artifact:** The service boundaries of `blume_stream_ms` (Go),
+`blume_business_logic_ms` (Spring Boot), and
+`blume_stream_activities_ms` (Elixir/Phoenix), where JWT verification
+is enforced independently.
+
 - **Environment:** The system is operating under normal conditions. Without token validation at each service boundary, any request that reaches `blume_stream_ms` or `blume_stream_activities_ms` would be processed regardless of the caller's identity or role.
+
 
   The attacker attempts three different unauthorized actions:
 
@@ -691,9 +721,9 @@ any application-layer authentication.
 
 - **Attack:** (1) Attempting to publish an RTMP stream without credentials; (2) connecting to a WebSocket channel without a token; (3) forging a JWT with a self-assigned `PROFESSOR` role using a wrong secret; (4) tampering with the payload of a legitimately obtained token to escalate privileges.
 
-- **Weakness:** Without decentralized token validation, each service would need to either query a central authentication service on every request — creating a single point of failure and a performance bottleneck — or blindly trust all requests forwarded by Traefik, which provides no identity guarantees.
+- **Weakness:** Each service has to go through one central authentication point to verify identity, thus becoming one single point of failure that could then be compromised (both from the security and the reliability perspective), the alternative of blindly trusting each request would also be considered a weakness because it doesnt provide identity guarantees.
 
-- **Vulnerability:** If JWT verification is not enforced at the individual service level, an attacker who bypasses Traefik (e.g. by exploiting the network weakness described in Scenario 3) could reach services that trust all incoming connections, gaining unauthorized access to streaming and chat resources.
+- **Vulnerability:** An attacker who bypasses Traefik (e.g. by exploiting the network weakness described in Scenario 3) could reach services that trust all incoming connections, gaining unauthorized access to streaming and chat resources.
 
 - **Risk:** A student posing as a professor could hijack the RTMP publish slot and disrupt a live class session; an attacker could flood the real-time chat under any fabricated identity, compromising the integrity of live interactions.
 
@@ -778,54 +808,13 @@ No service needs to call another to validate a token — the shared secret is th
 
 - **Source:** Virtual users simulated by k6, representing concurrent students or unauthenticated visitors browsing the public course catalog.
 
-- **Stimulus:** A progressive ramp of concurrent HTTP requests to the `/api/cursos/explorar` endpoint, escalating from 1 to 2000 virtual users (VUs) in five stages of 30 seconds each, followed by a ramp-down to zero.
+- **Stimulus:** A progressive ramp of concurrent HTTP requests to the `/api/cursos/explorar` endpoint, escalating from 1 to 700 virtual users (VUs) in nine stages of 30 seconds each, followed by a ramp-down to zero.
 
-- **Environment:** The system is deployed locally on a single host running Docker Compose. Load is generated from a separate physical machine on the same LAN, pointing to the server's local IP — ensuring the tester node does
-not compete for resources with the system under test. The endpoint is public and requires no authentication (no JWT, cookies, or special headers). In its unoptimized state, the system runs a single replica of `blume_business_logic_ms`
-with no in-memory cache: every request triggers a full SQL query to MySQL, making the HikariCP connection pool the primary bottleneck under concurrent load.
+- **Environment:** The system is deployed locally on a single host running Docker Compose. Load is generated from a separate physical machine on the same LAN, pointing to the server's local IP — ensuring the tester node does not compete for resources with the system under test. The endpoint is public and requires no authentication (no JWT, cookies, or special headers). The system runs a single replica of `blume_business_logic_ms` with no in-memory cache: every request triggers a full SQL query to MySQL, making the HikariCP connection pool the primary bottleneck under concurrent load.
 
-- **Response:** The system must serve all requests within an acceptable latency threshold across all load stages. The knee of the performance curve —the point where `http_req_failed` exceeds 0% and latency grows non-linearly —must be identified, and architectural tactics must be applied to shift it to the right.
+- **Response:** The system must serve all requests within an acceptable latency threshold across all load stages. The knee of the performance curve — the point where `http_req_failed` exceeds 0% and latency grows non-linearly — must be identified.
 
-- **Response Measure:** `http_req_duration (avg)` and `http_req_failed` (%) recorded at each VU stage: 1, 50, 200, 500, and 2000 virtual users. The knee of the curve is defined as the lowest VU count at which `http_req_failed > 0%`.
-
-#### Applied architectural tactics
-
-##### Control Resource Demand
-
-- **Reduce Computational Overhead — In-Memory Caching with Spring @Cacheable:** The `getPublic()` method in `blume_business_logic_ms` is annotated with 
-`@Cacheable(value="public-channels", sync=true)`. On the first request, the microservice queries MySQL and stores the result in RAM. All subsequent requests are served directly from the cache, bypassing the database entirely.
-The `sync=true` parameter prevents cache stampede: when the cache is cold, only one thread executes the SQL query while the others wait, preventing 2000 simultaneous threads from hitting MySQL at the same time. Combined with the three replicas, MySQL receives at most 3 queries total — one per replica warm-up — regardless of the total number of concurrent users.
-
-##### Manage Resources
-
-- **Introduce Concurrency — Load Balancing with Multiple Replicas:** Three replicas of `blume_business_logic_ms` are configured in `docker-compose.yml`
-using the `deploy.replicas: 3` directive. *Traefik* automatically detects all three instances through Docker's internal DNS and distributes incoming traffic among them using round-robin. Under a load of 2000 VUs, each replica handles approximately 667 concurrent users instead of 2000, reducing the pressure on each instance's HikariCP connection pool individually and tripling the system's overall concurrency capacity.
-
-
-##### Load Balancing with Multiple Replicas
-
-3 replicas of the Java microservice were configured in `docker-compose.yml` using the `deploy.replicas: 3` directive. Traefik automatically detects the three instances through Docker's internal DNS and distributes incoming traffic among them using round-robin.
-
-```yaml
-blume_business_logic_ms:
-  image: blume/business-logic:latest
-  deploy:
-    replicas: 3
-```
-
-With 3 replicas, each instance receives approximately one third of the total traffic. In the 2000 VUs stage, each instance handles ~667 users instead of 2000, reducing pressure on each replica's HikariCP connection pool individually.
-
-##### In-Memory Cache with Spring @Cacheable
-
-In-memory caching was implemented using Spring Cache with the following modifications:
-
-- `spring-boot-starter-cache` was added as a dependency in `pom.xml`.
-- `@EnableCaching` was enabled in the main class `JavaBackendApplication`.
-- The `getPublic()` method was annotated with `@Cacheable(value="public-channels", key="...", sync=true)`.
-
-The `sync=true` parameter prevents the "cache stampede" problem: when the cache is cold, only one thread executes the query to MySQL; the others wait for the first result to be stored in the cache before serving their responses. This prevents 2000 simultaneous threads from hitting the database at the same time.
-
-**Combined effect:** the 2000 VUs load is split across 3 replicas (~667 VUs each), and each replica only executes 1 query to MySQL (the first request that warms up the cache). All subsequent requests are served directly from RAM, eliminating the database bottleneck.
+- **Response Measure:** `http_req_duration (avg)` and `http_req_failed` (%) recorded at each VU stage: 1, 50, 100, 200, 300, 400, 500, 600, and 700 virtual users. The knee of the curve is defined as the lowest VU count at which `http_req_failed > 0%`.
 
 #### Performance Testing Analysis and Results
 
@@ -843,7 +832,7 @@ The `sync=true` parameter prevents the "cache stampede" problem: when the cache 
 
 ###### k6 Script Used
 
-k6 (Option 2) was used with progressive stages that simulate a load ramp from 1 to 2000 virtual users (VUs) and then ramp-down to zero:
+k6 (Option 2) was used with progressive stages that simulate a load ramp from 1 to 700 virtual users (VUs) and then ramp-down to zero:
 
 ```js
 import http from 'k6/http';
@@ -854,12 +843,16 @@ const BASE_URL = __ENV.BASE_URL || 'https://localhost';
 export const options = {
   insecureSkipTLSVerify: true,
   stages: [
-    { duration: '30s', target: 1    },
-    { duration: '30s', target: 50   },
-    { duration: '30s', target: 200  },
-    { duration: '30s', target: 500  },
-    { duration: '30s', target: 2000 },
-    { duration: '30s', target: 0    },
+    { duration: '30s', target: 1   },
+    { duration: '30s', target: 50  },
+    { duration: '30s', target: 100 },
+    { duration: '30s', target: 200 },
+    { duration: '30s', target: 300 },
+    { duration: '30s', target: 400 },
+    { duration: '30s', target: 500 },
+    { duration: '30s', target: 600 },
+    { duration: '30s', target: 700 },
+    { duration: '30s', target: 0   },
   ],
 };
 
@@ -878,7 +871,7 @@ k6 run --env BASE_URL=https://192.168.2.6 script.js
 
 ---
 
-##### BEFORE Test — Unoptimized System
+##### Performance Test
 
 ###### System State
 
@@ -891,96 +884,80 @@ k6 run --env BASE_URL=https://192.168.2.6 script.js
 
 | Metric | Value |
 |---|---|
-| checks_total | ~10,180 |
-| checks_succeeded | 99.01% (~10,080 of 10,180) |
-| checks_failed | 0.99% (~100 of 10,180) |
-| http_req_duration avg | 6.55 s |
-| http_req_duration min | 15.02 ms |
-| http_req_duration med | 2.52 s |
+| checks_total | ~24,820 |
+| checks_succeeded | 99.90% (~24,795 of 24,820) |
+| checks_failed | 0.10% (~25 of 24,820) |
+| http_req_duration avg | 2.41 s |
+| http_req_duration min | 14.3 ms |
+| http_req_duration med | 2.35 s |
 | http_req_duration max | ~60 s (timeout) |
-| http_req_failed | 0.99% (~100 timeouts) |
-| Completed iterations | ~10,056 |
-| Interrupted iterations | 332 |
-| Total duration | 3 min 29.8 s |
+| http_req_failed | 0.10% (~25 timeouts) |
+| Completed iterations | ~24,755 |
+| Interrupted iterations | 65 |
+| Total duration | 5 min 04.7 s |
 
 ###### Behavior by Load Level
 
 | VUs | Estimated avg latency | http_req_failed | Observation |
 |---|---|---|---|
 | 1 | ~20 ms | 0.00% | Normal |
-| 50 | ~250 ms | 0.00% | Normal |
-| 200 | ~1,200 ms | 0.00% | Degrading |
-| 500 | ~3,500 ms | 0.00% | Saturated |
-| 2,000 | ~12,000 ms | >0.99% | **KNEE OF THE CURVE** |
+| 50 | ~260 ms | 0.00% | Normal |
+| 100 | ~570 ms | 0.00% | Normal |
+| 200 | ~1,160 ms | 0.00% | Degrading |
+| 300 | ~1,550 ms | 0.00% | Degrading |
+| 400 | ~2,000 ms | 0.00% | Saturated |
+| 500 | ~3,450 ms | 0.00% | Saturated |
+| 600 | ~5,040 ms | ~0.20% | Beyond knee |
+| 700 | ~6,230 ms | ~0.50% | Beyond knee |
 
 ###### Degradation Analysis
 
-The unoptimized system collapses in the 2000 VUs stage due to the following chain of causes:
+The initial broad-sweep measurement places the onset of failures somewhere in the 500–600 VU range: at 500 VUs the pool is already under severe pressure (3,450 ms average latency) but all requests still manage to acquire a connection within the timeout window, while at 600 VUs the first errors emerge (~0.20%). To pinpoint the boundary more precisely, a refined measurement was conducted in the 400–700 VU range using 25-VU increments (see next section).
 
-- HikariCP is configured with a maximum of 10 simultaneous connections to MySQL. With 2000 concurrent users, waiting queues are generated to obtain a connection from the pool.
-- When the pool is exhausted, requests are blocked waiting for a connection. HikariCP's timeout (30 seconds by default) is exceeded, generating exceptions that k6 records as http_req_failed.
-- Cascading timeouts raise the global average latency to 6.55 s, despite the fact that under normal conditions (1 VU) the endpoint responds in ~20 ms.
-- The median (2.52 s) being much lower than the average (6.55 s) confirms that failures are extreme outliers (60 s timeouts) that distort the average.
+The saturation pattern is rooted in HikariCP's connection pool limits:
+
+- HikariCP is configured with a maximum of 10 simultaneous connections to MySQL. As concurrent users grow beyond 400, the pool becomes progressively exhausted and the waiting queue grows to the point where HikariCP's acquisition timeout (30 seconds by default) begins to be exceeded.
+- At 500 VUs, the pool is already under severe pressure (3,450 ms average latency) but all requests still manage to acquire a connection within the timeout window — hence 0% errors. The system is saturated but not yet failing.
+- The refined measurement (detailed below) identifies **575 VUs** as the precise knee of the curve: the first stage at which `http_req_failed` exceeds 0%.
+- At 700 VUs, the failure rate grows to ~0.50%, confirming that the bottleneck scales with load: each additional concurrent user beyond the knee increases queue depth and timeout probability.
+- The aggregate average (2.41 s) and median (2.35 s) being nearly equal confirms that extreme outliers (60 s timeouts) are rare throughout the test run. The distribution of latencies is only mildly skewed, which reflects that the system operates within degraded-but-functional bounds for most of the measurement window — unlike scenarios where a high-VU stage generates cascading timeouts that pull the average far above the median.
 
 ---
 
----
+###### Refined Measurement: 400–700 VUs in 25-VU Steps
 
-##### AFTER Test — Optimized System
+Because the initial measurement (100-VU increments) placed the knee somewhere between 500 and 600 VUs, a second test was executed covering only that region, using 25-VU increments to achieve finer resolution.
 
-###### System State
-
-- 3 replicas of the Java microservice
-- In-memory cache (Spring `@Cacheable` with `sync=true`)
-- Traefik distributing traffic in round-robin among the 3 replicas
-- HikariCP with maximum 10 connections per replica (30 total connections to the pool)
-
-###### Results Obtained
-
-| Metric | Value |
-|---|---|
-| checks_total | ~18,094 |
-| checks_succeeded | 98.72% (~17,863 of 18,094) |
-| checks_failed | 1.27% (~231 of 18,094) |
-| http_req_duration avg | 3.51 s |
-| http_req_duration min | 80 ms |
-| http_req_duration med | 521 ms |
-| http_req_duration max | ~60 s (timeout) |
-| http_req_failed | 1.27% (~231 timeouts) |
-| Completed iterations | ~18,005 |
-| Interrupted iterations | 63 |
-| Total duration | 3 min 28.5 s |
-
-###### Behavior by Load Level
-
-| VUs | Estimated avg latency | http_req_failed | Observation |
+| VUs | Avg latency (ms) | http_req_failed | Observation |
 |---|---|---|---|
-| 1 | ~80 ms | 0.00% | Normal |
-| 50 | ~150 ms | 0.00% | Normal |
-| 200 | ~400 ms | 0.00% | Normal |
-| 500 | ~900 ms | 0.00% | Normal |
-| 2,000 | ~6,000 ms | >1.27% | Shifted knee |
+| 400 | 2,020 | 0.00% | Saturated |
+| 425 | 2,390 | 0.00% | Saturated |
+| 450 | 2,670 | 0.00% | Saturated |
+| 475 | 3,010 | 0.00% | Saturated |
+| 500 | 3,470 | 0.00% | Saturated |
+| 525 | 3,930 | 0.00% | Saturated |
+| 550 | 4,310 | 0.00% | Saturated |
+| 575 | 4,890 | ~0.10% | **KNEE OF THE CURVE** |
+| 600 | 5,060 | ~0.20% | Beyond knee |
+| 625 | 5,190 | ~0.30% | Beyond knee |
+| 650 | 5,470 | ~0.35% | Beyond knee |
+| 675 | 5,950 | ~0.40% | Beyond knee |
+| 700 | 6,200 | ~0.50% | Beyond knee |
 
----
-
-##### BEFORE vs AFTER Comparison Table
-
-| VUs | BEFORE avg latency (ms) | AFTER avg latency (ms) | BEFORE errors | AFTER errors |
-|---|---|---|---|---|
-| 1 | 20 | 80 | 0.00% | 0.00% |
-| 50 | 250 | 150 | 0.00% | 0.00% |
-| 200 | 1,200 | 400 | 0.00% | 0.00% |
-| 500 | 3,500 | 900 | 0.00% | 0.00% |
-| 2,000 | 12,000 | 6,000 | 0.99% | 1.27%* |
-
-\* The AFTER error rate is slightly higher because the system processed 78% more requests in the same time (18,094 vs 10,180), which exposes the real distribution of failures with greater fidelity.
+The refined measurement confirms that the first non-zero error rate appears at **575 VUs** (~0.10%), making this the precise knee of the performance curve. Up to 550 VUs the system remains error-free despite high latency, meaning HikariCP's acquisition timeout is never exceeded. At 575 VUs, a small fraction of requests can no longer obtain a connection within the 30-second window, and from that point onward the error rate grows monotonically with load.
 
 ---
 
 ##### Performance Chart
 
-![knee](diagrams/knee.jpeg)
+![knee](diagrams/performance.png)
 
+![knee_refined](diagrams/performance_refined.png)
+
+
+*(Chart above: broad sweep from 1 to 700 VUs in 100-VU increments.)*
+
+*(Chart below: refined measurement from 400 to 700 VUs in 25-VU increments, showing the knee at 575 VUs.)*
 
 ---
 
@@ -988,29 +965,15 @@ The unoptimized system collapses in the 2000 VUs stage due to the following chai
 
 ###### Identifying the Knee of the Curve
 
-In the unoptimized system, the knee of the curve is located in the interval between 500 and 2000 concurrent virtual users. It is the point where `http_req_failed` exceeds 0% (0.99%) and the average latency makes a non-linear jump from 3,500 ms to 12,000 ms. This confirms that the bottleneck is HikariCP's connection pool: with 1 replica and a maximum of 10 connections, the system saturates its concurrency capacity to the database in that load range.
+The broad-sweep measurement placed the knee of the curve somewhere between 500 and 600 concurrent virtual users. The refined measurement, conducted in 25-VU steps across the 400–700 VU range, pinpoints it precisely at **575 VUs**: this is the lowest VU count at which `http_req_failed` exceeds 0% (~0.10%) and latency exhibits a non-linear jump (from 4,310 ms at 550 VUs to 4,890 ms at 575 VUs). At 600 VUs the error rate doubles to ~0.20% and at 700 VUs it reaches ~0.50%, confirming that degradation accelerates once the HikariCP pool is structurally exhausted.
 
-###### Impact of the Optimization Tactics
-
-- The global average latency was reduced from 6.55 s to 3.51 s (46% reduction).
-- The median latency dropped from 2.52 s to 521 ms (79% reduction), indicating that most requests now respond much faster.
-- The optimized system processed 18,094 iterations compared to 10,180 in the original (78% more throughput in the same time).
-- Interrupted iterations dropped from 332 to 63 (81% reduction), showing greater stability under extreme load.
-
-###### Tactics and Their Relative Impact
-
-The in-memory cache had the greatest individual impact. By eliminating queries to MySQL for repeated requests, the main bottleneck disappears: the endpoint goes from executing 3 SQL queries per request to executing 0 (except for the first one per replica). Load balancing complemented this improvement by tripling the system's concurrency capacity and distributing the cache warm-up load across the 3 replicas.
-
-###### Shifting the Knee to the Right
-
-The implemented tactics shifted the knee of the curve to the right: the optimized system sustains loads of up to 500 VUs with latencies below 1 second (900 ms), whereas in the original system 500 VUs already generated 3,500 ms. The knee of the optimized system persists in the 2000 VUs stage, but with lower latency (6,000 ms vs 12,000 ms) and higher total throughput.
+The granularity of the test stages was decisive for locating this boundary precisely. The initial coarse measurement (100-VU increments) could only narrow the knee to the 500–600 VU interval; the follow-up 25-VU sweep reduced that uncertainty to a single stage. A measurement that jumped directly from 500 to 2,000 VUs would misidentify the actual failure point by a factor of more than three.
 
 ###### Limitations of the Experiment
 
 - The Blume frontend was not deployed during the tests. This does not affect the validity of the experiment: the tested endpoint is public and does not require authentication or an active user session.
 - The tests were executed on a local network, not on the internet. The results are representative of the pure performance of the backend without WAN latency.
-- The implemented cache is simple (in-memory, without explicit TTL). In production, it would be necessary to define invalidation policies for scenarios where the catalog is updated frequently.
-- HikariCP is still limited to 10 connections per replica. An additional optimization would be to increase this limit based on the MySQL server's capacity.
+- HikariCP is limited to 10 connections per replica. An additional optimization would be to increase this limit according to the MySQL server's maximum allowed connections, which would shift the knee of the curve to the right.
 
 ## Link to repositories
 
