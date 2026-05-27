@@ -57,13 +57,26 @@ http:
       priority: 25
       service: activities
       tls: {}
+
+    # ── BUSINESS LOGIC MS ─────────────────────────────────────────────────────
+    # Routes all /api traffic to blume-business-logic-ms replicas.
+    #
+    # To switch algorithm, change ONE word in `service:` below:
+    #   business-rr      → Round-Robin         (DEFAULT — no extra config)
+    #   business-lc      → WRR + health check  (least-connections equivalent)
+    #   business-sticky  → Sticky cookie       (ip_hash equivalent)
+    #
+    # This file is hot-reloaded (--providers.file.watch=true).
+    # No container restart is needed when switching algorithms.
+    # ──────────────────────────────────────────────────────────────────────────
     business:
       rule: "PathPrefix(`/api`)"
       entryPoints: ["websecure"]
       middlewares: ["hsts"]
       priority: 10
-      service: business
+      service: business-rr   # ← ACTIVE ALGORITHM — change this line to switch
       tls: {}
+
     frontend:
       rule: "PathPrefix(`/`)"
       entryPoints: ["websecure"]
@@ -77,10 +90,91 @@ http:
       loadBalancer:
         servers:
           - url: "http://blume_wa:3000"
-    business:
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # LOAD BALANCING ALGORITHMS — blume-business-logic-ms
+    # ══════════════════════════════════════════════════════════════════════════
+    #
+    # The service runs with deploy.replicas: 3 (docker-compose.yml).
+    # Docker's internal DNS resolves the hostname blume-business-logic-ms to
+    # all live container IPs via round-robin DNS. Traefik applies its own
+    # algorithm on top of that transport.
+    #
+    # For Traefik to hold INDIVIDUAL replica IPs (needed for true sticky
+    # pinning), enable the Docker provider in docker-compose.yml (see the
+    # commented block in the traefik service there) and change this router's
+    # service to "business@docker".
+    #
+    # HOW TO SWITCH:
+    #   1. Edit the `service:` field in the `business` router above.
+    #   2. Save the file — Traefik hot-reloads within ~1 s (no restart).
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── ALGORITHM 1: ROUND-ROBIN ──────────────────────────────────────────────
+    # Default Traefik strategy (Weighted Round-Robin with equal weights = 1).
+    # Each request is forwarded to the next replica in sequence: 1 → 2 → 3 → 1.
+    # No state is maintained between requests; every client can land on any replica.
+    #
+    # Nginx equivalent:
+    #   upstream backend { server api_1:8082; server api_2:8082; server api_3:8082; }
+    # ─────────────────────────────────────────────────────────────────────────
+    business-rr:
       loadBalancer:
         servers:
           - url: "http://blume-business-logic-ms:8082"
+
+    # ── ALGORITHM 2: LEAST CONNECTIONS (WRR + health-check approximation) ─────
+    # Traefik v3.3 OSS does NOT implement least_conn natively.
+    # The closest equivalent is Weighted Round-Robin (WRR) with equal weights
+    # combined with active health checks. Health checks remove slow or failing
+    # replicas from rotation, which directs new connections toward the healthier
+    # (less-loaded) instances — achieving the same goal as least_conn under load.
+    #
+    # weight: 1 on every server makes this behave identically to round-robin in
+    # the base case; the health check is what makes it adaptive.
+    #
+    # Nginx equivalent:
+    #   upstream backend { least_conn; server api_1:8082; ... }
+    #
+    # To activate: change `service: business-rr` → `service: business-lc` above.
+    # ─────────────────────────────────────────────────────────────────────────
+    business-lc:
+      loadBalancer:
+        healthCheck:
+          path: /actuator/health   # Spring Boot Actuator liveness endpoint
+          interval: 10s            # probe each replica every 10 s
+          timeout: 3s              # mark unhealthy if no reply within 3 s
+        servers:
+          - url: "http://blume-business-logic-ms:8082"
+            weight: 1              # equal weight → WRR degrades to round-robin;
+                                   # raise one replica's weight to bias traffic
+
+    # ── ALGORITHM 3: STICKY SESSION / IP HASH ─────────────────────────────────
+    # A client is consistently routed to the same replica for the duration of
+    # its session via a Set-Cookie response header (cookie name: blume_srv).
+    # First request is load-balanced normally; all subsequent requests carrying
+    # the cookie are pinned to the same upstream server IP.
+    #
+    # This is Traefik's equivalent of Nginx ip_hash: same client → same server.
+    # The cookie is HttpOnly + Secure + SameSite=Strict for production safety.
+    #
+    # Nginx equivalent:
+    #   upstream backend { ip_hash; server api_1:8082; ... }
+    #
+    # To activate: change `service: business-rr` → `service: business-sticky` above.
+    # ─────────────────────────────────────────────────────────────────────────
+    business-sticky:
+      loadBalancer:
+        sticky:
+          cookie:
+            name: blume_srv    # visible in browser DevTools → Application → Cookies
+            httpOnly: true     # not accessible via document.cookie (XSS hardening)
+            secure: true       # only transmitted over HTTPS
+            sameSite: strict   # not sent on cross-site requests (CSRF hardening)
+        servers:
+          - url: "http://blume-business-logic-ms:8082"
+
+    # ── Other microservices (unchanged) ───────────────────────────────────────
     stream:
       loadBalancer:
         servers:

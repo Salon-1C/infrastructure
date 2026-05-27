@@ -10,8 +10,19 @@ services:
     image: traefik:v3.3
     restart: unless-stopped
     command:
+      # ── File provider: static routing rules + TLS (hot-reloaded) ─────────────
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
+      # ── Docker provider (OPTIONAL — uncomment to enable) ──────────────────────
+      # Allows Traefik to discover each individual replica as a separate backend
+      # server, enabling TRUE per-replica load balancing (round-robin, sticky, etc.)
+      # When enabled, also change the `business` router in dynamic.yml to:
+      #   service: business@docker
+      # and run replicas with: docker compose up --scale blume-business-logic-ms=3
+      # - --providers.docker=true
+      # - --providers.docker.network=blume_app
+      # - --providers.docker.exposedByDefault=false
+      # ── Entrypoints ────────────────────────────────────────────────────────────
       - --entrypoints.web.address=:80
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
@@ -23,6 +34,8 @@ services:
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
       - ./security/ca:/etc/traefik/certs:ro
+      # Uncomment when Docker provider is enabled above:
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - blume_edge
       - blume_app
@@ -100,13 +113,48 @@ services:
       FIREBASE_SERVICE_ACCOUNT_PATH: /app/firebase/serviceAccountKey.json
     volumes:
       - ../blume_business_logic_ms/firebase/serviceAccountKey.json:/app/firebase/serviceAccountKey.json:ro
+    # ── Load-balancing notes ──────────────────────────────────────────────────
+    # deploy.replicas: 3 → Docker runs three container instances of this service.
+    # Docker's internal DNS (blume-business-logic-ms) resolves to all live replica
+    # IPs via round-robin DNS, so Traefik already receives distributed traffic
+    # even without the Docker provider.
+    #
+    # To have Traefik manage per-replica selection itself (required for true
+    # sticky sessions or weighted routing), enable the Docker provider block in
+    # the `traefik` service above, then point the `business` router in
+    # traefik/dynamic.yml to `service: business@docker`.
+    #
+    # Scale replicas at runtime (non-Swarm):
+    #   docker compose up --scale blume-business-logic-ms=3
+    #
+    # ACTIVE ALGORITHM is controlled in traefik/dynamic.yml → router `business`
+    # → `service:` field. No label changes required to switch algorithm.
+    # ──────────────────────────────────────────────────────────────────────────
     labels:
       - traefik.enable=true
-      - traefik.http.routers.business.rule=PathPrefix(`/api`)
-      - traefik.http.routers.business.entrypoints=web
-      - traefik.http.routers.business.priority=10
+      # Port declaration — required when Docker provider is active so Traefik
+      # knows which container port maps to the `business` service.
       - traefik.http.services.business.loadbalancer.server.port=8082
+
+      # ── ALGORITHM 1: ROUND-ROBIN (DEFAULT — active in dynamic.yml) ──────────
+      # No special label needed. Traefik's WRR with equal weights is round-robin.
+      # Controlled by `service: business-rr` in traefik/dynamic.yml.
       - traefik.http.services.business.loadbalancer.sticky.cookie=false
+
+      # ── ALGORITHM 2: WRR / LEAST-CONN (uncomment when Docker provider active) ─
+      # Traefik v3.3 OSS has no native least_conn; WRR + health check is used.
+      # Comment out sticky.cookie=false above and uncomment these three lines.
+      # - traefik.http.services.business.loadbalancer.healthcheck.path=/actuator/health
+      # - traefik.http.services.business.loadbalancer.healthcheck.interval=10s
+      # - traefik.http.services.business.loadbalancer.healthcheck.timeout=3s
+
+      # ── ALGORITHM 3: STICKY SESSION / IP HASH (uncomment when Docker provider active) ─
+      # Pins each client to the same replica via the blume_srv cookie.
+      # Comment out sticky.cookie=false above and uncomment these four lines.
+      # - traefik.http.services.business.loadbalancer.sticky.cookie=true
+      # - traefik.http.services.business.loadbalancer.sticky.cookie.name=blume_srv
+      # - traefik.http.services.business.loadbalancer.sticky.cookie.httponly=true
+      # - traefik.http.services.business.loadbalancer.sticky.cookie.secure=true
     networks:
       - blume_app
       - blume_data
