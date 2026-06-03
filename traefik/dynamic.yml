@@ -74,7 +74,7 @@ http:
       entryPoints: ["websecure"]
       middlewares: ["hsts"]
       priority: 10
-      service: business-rr   # ← ACTIVE ALGORITHM — change this line to switch
+      service: business@docker   # Docker provider manages the per-replica IP pool
       tls: {}
 
     frontend:

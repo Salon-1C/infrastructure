@@ -13,31 +13,58 @@ services:
       # ── File provider: static routing rules + TLS (hot-reloaded) ─────────────
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
-      # ── Docker provider (OPTIONAL — uncomment to enable) ──────────────────────
-      # Allows Traefik to discover each individual replica as a separate backend
-      # server, enabling TRUE per-replica load balancing (round-robin, sticky, etc.)
-      # When enabled, also change the `business` router in dynamic.yml to:
-      #   service: business@docker
-      # and run replicas with: docker compose up --scale blume-business-logic-ms=3
-      # - --providers.docker=true
-      # - --providers.docker.network=blume_app
-      # - --providers.docker.exposedByDefault=false
+      # ── Docker provider ───────────────────────────────────────────────────────
+      # Discovers each individual replica as a separate backend server by IP.
+      # Traefik watches Docker lifecycle events: on container start it reads the
+      # dynamic IP from the Docker API and registers it under the logical service;
+      # on container death it deregisters it immediately — no config edit needed.
+      - --providers.docker=true
+      - --providers.docker.endpoint=tcp://docker-api-compat:2375
+      - --providers.docker.network=blume_app
+      - --providers.docker.exposedByDefault=false
       # ── Entrypoints ────────────────────────────────────────────────────────────
       - --entrypoints.web.address=:80
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
       - --api.insecure=false
+    environment:
+      DOCKER_API_VERSION: "1.44"
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
       - ./security/ca:/etc/traefik/certs:ro
-      # Uncomment when Docker provider is enabled above:
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - blume_edge
+      - blume_app
+
+  docker-api-compat:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/docker-api-compat.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - docker-socket-proxy
+    networks:
+      - blume_app
+
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      PING: 1
+      CONTAINERS: 1
+      NETWORKS: 1
+      SERVICES: 1
+      TASKS: 1
+      INFO: 1
+      VERSION: 1
+      EVENTS: 1
+    volumes:
+      - //var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
       - blume_app
 
   mysql:
@@ -88,9 +115,8 @@ services:
           cpus: "0.25"
           memory: 256M
       restart_policy:
-        condition: on-failure
+        condition: any
         delay: 5s
-        max_attempts: 3
     depends_on:
       mysql:
         condition: service_healthy
@@ -144,9 +170,9 @@ services:
       # ── ALGORITHM 2: WRR / LEAST-CONN (uncomment when Docker provider active) ─
       # Traefik v3.3 OSS has no native least_conn; WRR + health check is used.
       # Comment out sticky.cookie=false above and uncomment these three lines.
-      # - traefik.http.services.business.loadbalancer.healthcheck.path=/actuator/health
-      # - traefik.http.services.business.loadbalancer.healthcheck.interval=10s
-      # - traefik.http.services.business.loadbalancer.healthcheck.timeout=3s
+      - traefik.http.services.business.loadbalancer.healthcheck.path=/api/health
+      - traefik.http.services.business.loadbalancer.healthcheck.interval=10s
+      - traefik.http.services.business.loadbalancer.healthcheck.timeout=3s
 
       # ── ALGORITHM 3: STICKY SESSION / IP HASH (uncomment when Docker provider active) ─
       # Pins each client to the same replica via the blume_srv cookie.
