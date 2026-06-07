@@ -16,3 +16,6 @@ terraform.tfvars
 
 security/ca/
 *.pem
+
+# Respaldos cold replication (generados localmente)
+replication/backups/
