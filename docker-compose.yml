@@ -347,6 +347,17 @@ services:
       - blume_app
       - blume_data
 
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    restart: unless-stopped
+    ports:
+      - "8474:8474"
+    volumes:
+      - ./toxiproxy/toxiproxy.json:/config/toxiproxy.json:ro
+    command: ["-config", "/config/toxiproxy.json", "-host", "0.0.0.0"]
+    networks:
+      - blume_app
+
   blume_recomendations_ms:
     build:
       context: ../blume_recomendations_ms
@@ -356,8 +367,10 @@ services:
         condition: service_started
       blume_stream_activities_ms:
         condition: service_started
+      toxiproxy:
+        condition: service_started
     environment:
-      STREAMS_API_URL: http://blume-business-logic-ms:8082
+      STREAMS_API_URL: http://toxiproxy:38082
       ACTIVITIES_API_URL: http://blume_stream_activities_ms:4000
       ALLOWED_ORIGINS: '["https://localhost"]'
     labels:

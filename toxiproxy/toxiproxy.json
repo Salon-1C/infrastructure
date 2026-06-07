@@ -1,0 +1,9 @@
+[
+  {
+    "name": "business-logic-proxy",
+    "listen": "0.0.0.0:38082",
+    "upstream": "blume-business-logic-ms:8082",
+    "enabled": true,
+    "toxics": []
+  }
+]
