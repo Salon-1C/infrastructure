@@ -74,7 +74,7 @@ http:
       entryPoints: ["websecure"]
       middlewares: ["hsts"]
       priority: 10
-      service: business@docker   # Docker provider manages the per-replica IP pool
+      service: business-proxy
       tls: {}
 
     frontend:
@@ -118,6 +118,11 @@ http:
     # Nginx equivalent:
     #   upstream backend { server api_1:8082; server api_2:8082; server api_3:8082; }
     # ─────────────────────────────────────────────────────────────────────────
+    business-proxy:
+      loadBalancer:
+        servers:
+          - url: "http://toxiproxy:38082"
+
     business-rr:
       loadBalancer:
         servers:
