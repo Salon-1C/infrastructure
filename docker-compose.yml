@@ -358,6 +358,17 @@ services:
       - blume_app
       - blume_data
 
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    restart: unless-stopped
+    ports:
+      - "8474:8474"
+    volumes:
+      - ./toxiproxy/toxiproxy.json:/config/toxiproxy.json:ro
+    command: ["-config", "/config/toxiproxy.json", "-host", "0.0.0.0"]
+    networks:
+      - blume_app
+
   blume_recomendations_ms:
     build:
       context: ../blume_recomendations_ms
