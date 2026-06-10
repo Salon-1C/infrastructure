@@ -170,7 +170,7 @@ services:
       - blume_data
       - postgres_tailscale
     ports:
-      - "100.91.35.41:5432:5432"
+      - "0.0.0.0:5432:5432"
 
   blume-business-logic-ms:
     build:
@@ -415,7 +415,7 @@ services:
       RELEASE_DISTRIBUTION: name
       RELEASE_NODE: "activities@${TAILSCALE_IP_LAPTOP}"   # e.g. 100.x.x.x
       RELEASE_COOKIE: ${RELEASE_COOKIE}
-      CLUSTER_NODES: "activities@${TAILSCALE_IP_LAPTOP},activities@${TAILSCALE_IP_VM}"
+      CLUSTER_NODES: "activities@${TAILSCALE_IP_LAPTOP},activities@${TAILSCALE_IP_VM},activities@${TAILSCALE_IP_1},activities@${TAILSCALE_IP_2}"
       ERL_DIST_PORT: "9000"
     ports:
       - "4369:4369"   # EPMD

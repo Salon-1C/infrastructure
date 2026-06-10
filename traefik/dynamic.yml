@@ -204,6 +204,7 @@ http:
         servers:
           - url: "http://blume_stream_activities_ms:4000"
           - url: "http://100.78.48.65:4000"
+          - url: "http://100.93.246.73:4000"
     mediamtx:
       loadBalancer:
         servers:
