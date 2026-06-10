@@ -168,6 +168,8 @@ services:
       retries: 5
     networks:
       - blume_data
+    ports:
+      - "5432:5432"
 
   blume-business-logic-ms:
     build:
@@ -393,6 +395,8 @@ services:
   blume_stream_activities_ms:
     build:
       context: ../blume_stream_activities_ms
+      args:
+        RELEASE_COOKIE: ${RELEASE_COOKIE}
     restart: unless-stopped
     depends_on:
       postgres_activities:
@@ -406,6 +410,14 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${ACTIVITIES_SECRET_KEY_BASE:-dev_only_change_me_use_mix_phx_gen_secret_min_64_chars________________________________}
       DATABASE_URL: postgresql://${ACTIVITIES_DB_USER:-blume}:${ACTIVITIES_DB_PASSWORD:-postgres}@postgres_activities:5432/${ACTIVITIES_DB_NAME:-stream_activities}
+      # ── Clustering ────────────────────────────────────────────────────────────
+      RELEASE_NODE: "activities@${TAILSCALE_IP_LAPTOP}"   # e.g. 100.x.x.x
+      RELEASE_COOKIE: ${RELEASE_COOKIE}
+      CLUSTER_NODES: "activities@${TAILSCALE_IP_LAPTOP},activities@${TAILSCALE_IP_VM}"
+      ERL_DIST_PORT: "9000"
+    ports:
+      - "4369:4369"   # EPMD
+      - "9000:9000"   # Erlang distribution
     labels:
       - traefik.enable=true
       - traefik.http.routers.activities.rule=PathPrefix(`/socket`) || PathPrefix(`/activities`)
