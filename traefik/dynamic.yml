@@ -201,6 +201,10 @@ http:
           - url: "http://blume_recomendations_ms:8000"
     activities:
       loadBalancer:
+        healthCheck:
+          path: "/health"
+          interval: "5s"      # check every 5 seconds
+          timeout: "2s"       # mark unhealthy if no response in 2 seconds
         servers:
           - url: "http://blume_stream_activities_ms:4000"
           - url: "http://100.78.48.65:4000"
