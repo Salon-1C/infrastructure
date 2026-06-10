@@ -73,13 +73,82 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --sync-binlog=1
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./replication/mysql/init-primary:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - blume_data
+
+  mysql-warm:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    command:
+      - --server-id=2
+      - --read-only=1
+      - --relay-log=relay-bin
+      - --skip-replica-start
+    volumes:
+      - mysql_warm_data:/var/lib/mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - blume_data
+
+  replication-warm-setup:
+    image: mysql:8.4
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mysql-warm:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      MYSQL_HOST: mysql
+      MYSQL_WARM_HOST: mysql-warm
+      WARM_CHECK_INTERVAL: ${WARM_CHECK_INTERVAL:-60}
+    volumes:
+      - ./replication/scripts/warm-watchdog.sh:/warm-watchdog.sh:ro
+      - ./replication/scripts/warm-replicate-core.sh:/warm-replicate-core.sh:ro
+    entrypoint: ["/bin/bash", "/warm-watchdog.sh"]
+    networks:
+      - blume_data
+
+  mysql-cold-backup:
+    image: mysql:8.4
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      MYSQL_HOST: mysql
+      BACKUP_INTERVAL_SECONDS: ${COLD_BACKUP_INTERVAL_SECONDS:-3600}
+      BACKUP_RETENTION_COUNT: ${COLD_BACKUP_RETENTION_COUNT:-24}
+    volumes:
+      - ./replication/backups:/backups
+      - ./replication/scripts/cold-backup-loop.sh:/cold-backup-loop.sh:ro
+    entrypoint: ["/bin/bash", "/cold-backup-loop.sh"]
     networks:
       - blume_data
 
@@ -415,6 +484,7 @@ services:
 
 volumes:
   mysql_data:
+  mysql_warm_data:
   postgres_activities_data:
   recordings_mysql_data:
   minio_data:

@@ -53,13 +53,29 @@ require_stack() {
   fi
 }
 
+wait_warm_replication() {
+  local max=${1:-90}
+  for i in $(seq 1 "$max"); do
+    local status io sql
+    status="$(docker compose exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -e \
+      "SHOW REPLICA STATUS\G" 2>/dev/null | tr -d '\r' || true)"
+    io=$(echo "$status" | grep -E 'Replica_IO_Running:' | awk '{print $2}')
+    sql=$(echo "$status" | grep -E 'Replica_SQL_Running:' | awk '{print $2}')
+    if [[ "$io" == "Yes" && "$sql" == "Yes" ]]; then
+      return 0
+    fi
+    [[ "$i" -eq 1 ]] && echo "  Esperando replicación warm (replication-warm-setup)..."
+    sleep 2
+  done
+  return 1
+}
+
 mysql_primary() {
   docker compose exec -T mysql mysql -uroot -p"${DB_PASSWORD}" -N -e "$*"
 }
 
 mysql_warm() {
-  docker compose -f docker-compose.yml -f docker-compose.replication.yml --profile replication \
-    exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -N -e "$*"
+  docker compose exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -N -e "$*"
 }
 
 ensure_marker_table() {

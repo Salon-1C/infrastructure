@@ -2,20 +2,14 @@
 # Escenario Warm — réplica MySQL sincronizada pero no sirve tráfico de aplicación.
 #
 # Uso:
-#   cd infrastructure
-#   docker compose -f docker-compose.yml -f docker-compose.replication.yml --profile replication up -d
-#   bash replication/scripts/setup-warm-replication.sh
+#   cd infrastructure && docker compose up -d
 #   bash tests/replication/warm/run-test.sh
-#
-# Requisitos: overlay replication, mysql-warm healthy, replicación configurada
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/../common.sh"
-
-COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.replication.yml --profile replication)
 
 require_stack
 
@@ -24,12 +18,17 @@ echo " REPLICATION WARM — MySQL standby sincronizado (mysql-warm)"
 echo "══════════════════════════════════════════════════════"
 echo ""
 
-if ! "${COMPOSE[@]}" ps mysql-warm 2>/dev/null | grep -q "Up"; then
-  echo "mysql-warm no está levantado. Ejecuta el overlay replication y setup-warm-replication.sh"
+if ! docker compose ps mysql-warm 2>/dev/null | grep -q "Up"; then
+  echo "mysql-warm no está levantado. Ejecuta: docker compose up -d"
   exit 1
 fi
 
-REPLICA_STATUS="$("${COMPOSE[@]}" exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -e \
+if ! wait_warm_replication 90; then
+  echo "Replicación warm no activa tras 90s. Revisa: docker compose logs replication-warm-setup"
+  exit 1
+fi
+
+REPLICA_STATUS="$(docker compose exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -e \
   "SHOW REPLICA STATUS\G" 2>/dev/null | tr -d '\r' || true)"
 
 IO_RUNNING="$(echo "$REPLICA_STATUS" | grep -E 'Replica_IO_Running:' | awk '{print $2}')"
@@ -66,7 +65,7 @@ done
 check_true "Marcador replicado a mysql-warm" "[[ ${COUNT:-0} -eq 1 ]]"
 check_true "Tiempo de propagación ≤ 15 s" "[[ ${SYNCED} -eq 1 ]]"
 
-READ_ONLY="$("${COMPOSE[@]}" exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -N -e \
+READ_ONLY="$(docker compose exec -T mysql-warm mysql -uroot -p"${DB_PASSWORD}" -N -e \
   "SELECT @@read_only;" 2>/dev/null | tr -d '\r')"
 check_eq "Réplica warm permanece read-only (no sirve escrituras de app)" "1" "$READ_ONLY"
 
