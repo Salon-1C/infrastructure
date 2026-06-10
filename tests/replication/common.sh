@@ -10,6 +10,8 @@ source .env 2>/dev/null || true
 
 DB_PASSWORD="${DB_PASSWORD:?DB_PASSWORD no definido en infrastructure/.env}"
 DB_NAME="${DB_NAME:-blume}"
+RECORD_DB_PASSWORD="${RECORD_DB_PASSWORD:?RECORD_DB_PASSWORD no definido en infrastructure/.env}"
+RECORD_DB_NAME="${RECORD_DB_NAME:-recordings}"
 BASE_URL="${BASE_URL:-https://localhost}"
 
 PASS=0
@@ -88,9 +90,28 @@ CREATE TABLE IF NOT EXISTS ${DB_NAME}.replication_test_marker (
 );"
 }
 
+mysql_record() {
+  docker compose exec -T recordings-mysql mysql -uroot -p"${RECORD_DB_PASSWORD}" -N -e "$*"
+}
+
+ensure_marker_table_record() {
+  mysql_record "
+CREATE TABLE IF NOT EXISTS ${RECORD_DB_NAME}.replication_test_marker (
+  marker_id VARCHAR(64) PRIMARY KEY,
+  scenario VARCHAR(16) NOT NULL,
+  note VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);"
+}
+
 curl_explorar_code() {
   curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 15 \
     "${BASE_URL}/api/cursos/explorar" 2>/dev/null || echo "000"
+}
+
+curl_recordings_code() {
+  curl -k -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 15 \
+    "${BASE_URL}/api/recordings" 2>/dev/null || echo "000"
 }
 
 print_summary() {

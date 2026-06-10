@@ -137,12 +137,12 @@ services:
     image: mysql:8.4
     restart: unless-stopped
     depends_on:
-      mysql:
+      recordings-mysql:
         condition: service_healthy
     environment:
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      MYSQL_HOST: mysql
+      DB_PASSWORD: ${RECORD_DB_PASSWORD}
+      DB_NAME: ${RECORD_DB_NAME}
+      MYSQL_HOST: recordings-mysql
       BACKUP_INTERVAL_SECONDS: ${COLD_BACKUP_INTERVAL_SECONDS:-3600}
       BACKUP_RETENTION_COUNT: ${COLD_BACKUP_RETENTION_COUNT:-24}
     volumes:

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Sidecar: respaldos cold automáticos de blume_business_db.
+# Sidecar: respaldos cold automáticos de blume_record_db.
 set -euo pipefail
 
 DB_PASSWORD="${DB_PASSWORD:?DB_PASSWORD requerido}"
-DB_NAME="${DB_NAME:-blume}"
-MYSQL_HOST="${MYSQL_HOST:-mysql}"
+DB_NAME="${DB_NAME:?DB_NAME requerido}"
+MYSQL_HOST="${MYSQL_HOST:-recordings-mysql}"
 BACKUP_INTERVAL_SECONDS="${BACKUP_INTERVAL_SECONDS:-3600}"
 BACKUP_RETENTION_COUNT="${BACKUP_RETENTION_COUNT:-24}"
 BACKUP_DIR="/backups"
@@ -16,7 +16,7 @@ run_backup() {
   stamp="$(date +%Y%m%d-%H%M%S)"
   out="${BACKUP_DIR}/${DB_NAME}-${stamp}.sql"
 
-  echo "[cold-backup] Generando respaldo en ${out}..."
+  echo "[cold-backup] Generando respaldo de blume_record_db en ${out}..."
   mysqldump -h "$MYSQL_HOST" -uroot -p"${DB_PASSWORD}" \
     --single-transaction --routines --triggers "${DB_NAME}" > "${out}"
   echo "[cold-backup] Respaldo completado: ${out}"
@@ -30,7 +30,7 @@ run_backup() {
   fi
 }
 
-echo "[cold-backup] Iniciando loop (intervalo=${BACKUP_INTERVAL_SECONDS}s, retención=${BACKUP_RETENTION_COUNT})..."
+echo "[cold-backup] Iniciando loop blume_record_db (intervalo=${BACKUP_INTERVAL_SECONDS}s, retención=${BACKUP_RETENTION_COUNT})..."
 
 while true; do
   if run_backup; then
