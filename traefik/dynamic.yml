@@ -7,6 +7,13 @@ http:
         stsPreload: true
         forceSTSHeader: true
 
+    business-cb:
+      circuitBreaker:
+        expression: "ResponseCodeRatio(500, 600, 0, 600) > 0.30 || NetworkErrorRatio() > 0.10"
+        checkPeriod: 10s
+        fallbackDuration: 30s
+        recoveryDuration: 10s
+
   routers:
     nextAuthClearSession:
       rule: "Path(`/api/auth/clear-session`)"
@@ -72,9 +79,9 @@ http:
     business:
       rule: "PathPrefix(`/api`)"
       entryPoints: ["websecure"]
-      middlewares: ["hsts"]
+      middlewares: ["hsts", "business-cb"]
       priority: 10
-      service: business@docker   # Docker provider manages the per-replica IP pool
+      service: business-proxy
       tls: {}
 
     frontend:
@@ -173,6 +180,11 @@ http:
             sameSite: strict   # not sent on cross-site requests (CSRF hardening)
         servers:
           - url: "http://blume-business-logic-ms:8082"
+
+    business-proxy:
+      loadBalancer:
+        servers:
+          - url: "http://toxiproxy:38082"
 
     # ── Other microservices (unchanged) ───────────────────────────────────────
     stream:
