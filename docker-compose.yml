@@ -194,7 +194,7 @@ services:
         condition: service_healthy
     environment:
       JAVA_TOOL_OPTIONS: -Xms256m -Xmx512m
-      DB_HOST: mysql
+      DB_HOST: mysql-warm
       DB_PORT: 3306
       DB_NAME: ${DB_NAME}
       DB_USER: root

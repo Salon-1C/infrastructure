@@ -58,7 +58,7 @@ START REPLICA;
 "
 
 for _ in $(seq 1 30); do
-  status="$(mysql_on "$MYSQL_WARM_HOST" "SHOW REPLICA STATUS\G" | tr -d '\r' || true)"
+  status="$(mysql -h "$MYSQL_WARM_HOST" -uroot -p"${DB_PASSWORD}" -e "SHOW REPLICA STATUS\G" | tr -d '\r' || true)"
   io=$(echo "$status" | grep -E 'Replica_IO_Running:' | awk '{print $2}')
   sql=$(echo "$status" | grep -E 'Replica_SQL_Running:' | awk '{print $2}')
   if [[ "$io" == "Yes" && "$sql" == "Yes" ]]; then
