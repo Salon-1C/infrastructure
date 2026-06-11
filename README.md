@@ -75,7 +75,7 @@ Applied internally within the Live Stream Activities component. It uses Erlang's
 ### Deployment Structure
 
 - **View:**
-![DiagramsDelivery #1-C&C View](diagrams/deployment.jpeg)
+![DiagramsDelivery #1-C&C View](diagrams/deployment.png)
 
 
 
