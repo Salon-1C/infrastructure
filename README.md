@@ -1,24 +1,3 @@
-<style>
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 9pt;
-    page-break-inside: auto;
-  }
-  th, td {
-    overflow-wrap: break-word;
-    word-break: break-word;
-    hyphens: auto;
-  }
-  tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-  @page {
-    margin: 1.5cm;
-  }
-</style>
-
 # Prototype 4
 ## Team
 **Name:** 1C
